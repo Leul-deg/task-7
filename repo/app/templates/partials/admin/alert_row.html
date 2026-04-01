@@ -1,0 +1,42 @@
+<tr id="alert-row-{{ t.id }}" class="hover:bg-stone-50 transition-colors">
+  <td class="px-4 py-3 font-medium text-stone-700">
+    {% if t.metric == 'error_rate' %}Error Rate %
+    {% elif t.metric == 'latency_p99' %}p99 Latency ms
+    {% elif t.metric == 'disk_usage' %}Disk Usage %
+    {% else %}{{ t.metric }}{% endif %}
+  </td>
+  <td class="px-4 py-3 font-mono text-sm text-stone-600">
+    {{ t.operator }} {{ t.threshold_value }}
+  </td>
+  <td class="px-4 py-3 text-stone-500 text-sm">{{ t.window_minutes }} min</td>
+  <td class="px-4 py-3">
+    <span class="inline-block px-2 py-0.5 rounded-full text-xs font-semibold
+      {% if t.is_active %}bg-emerald-100 text-emerald-700{% else %}bg-stone-100 text-stone-500{% endif %}">
+      {% if t.is_active %}Active{% else %}Paused{% endif %}
+    </span>
+  </td>
+  <td class="px-4 py-3 text-stone-400 text-xs whitespace-nowrap">
+    {% if t.last_triggered %}{{ t.last_triggered.strftime('%m/%d/%Y %I:%M %p') }}{% else %}Never{% endif %}
+  </td>
+  <td class="px-4 py-3 text-right">
+    <div class="flex items-center justify-end gap-2">
+      <button
+        hx-post="{{ url_for('admin.toggle_alert', threshold_id=t.id) }}"
+        hx-target="#alert-row-{{ t.id }}"
+        hx-swap="outerHTML"
+        hx-headers='{"X-CSRFToken": "{{ csrf_token() }}"}'
+        class="text-xs text-stone-500 hover:text-brand-700 transition-colors">
+        {% if t.is_active %}Pause{% else %}Resume{% endif %}
+      </button>
+      <button
+        hx-delete="{{ url_for('admin.delete_alert', threshold_id=t.id) }}"
+        hx-target="#alert-row-{{ t.id }}"
+        hx-swap="outerHTML"
+        hx-confirm="Delete this alert threshold?"
+        hx-headers='{"X-CSRFToken": "{{ csrf_token() }}"}'
+        class="text-xs text-red-500 hover:text-red-700 transition-colors">
+        Delete
+      </button>
+    </div>
+  </td>
+</tr>

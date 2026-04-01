@@ -1,0 +1,230 @@
+{% extends "base.html" %}
+{% block title %}{{ 'Edit' if content else 'New' }} Content — StudioOps{% endblock %}
+
+{% block content %}
+<div class="max-w-5xl mx-auto space-y-6">
+
+  <!-- Header -->
+  <div class="flex items-center gap-4">
+    <a href="{{ url_for('content.editor_dashboard') }}"
+       class="text-stone-400 hover:text-brand-700 transition-colors">
+      <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+        <path stroke-linecap="round" stroke-linejoin="round" d="M10.5 19.5L3 12m0 0l7.5-7.5M3 12h18" />
+      </svg>
+    </a>
+    <h1 class="text-2xl font-bold text-stone-800">
+      {% if content %}Edit Content{% else %}Create New Content{% endif %}
+    </h1>
+  </div>
+
+  <!-- Error target -->
+  <div id="form-errors"></div>
+
+  <!-- Main form -->
+  <form
+    hx-post="{{ url_for('content.editor_save') }}"
+    hx-encoding="multipart/form-data"
+    hx-target="#form-errors"
+    hx-swap="innerHTML"
+    enctype="multipart/form-data"
+    class="space-y-6"
+  >
+    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}" />
+    {% if content %}
+    <input type="hidden" name="content_id" value="{{ content.id }}" />
+    {% endif %}
+
+    <!-- Top row: title + type -->
+    <div class="bg-white rounded-2xl border border-stone-200 shadow-sm p-6 space-y-5">
+
+      <!-- Title -->
+      <div>
+        <label class="block text-sm font-medium text-stone-700 mb-1.5">
+          Title <span class="text-red-500">*</span>
+        </label>
+        <input type="text" name="title" required maxlength="300"
+               value="{{ content.title if content else '' }}"
+               placeholder="Enter a compelling title…"
+               class="w-full text-sm rounded-xl border border-stone-200 px-4 py-2.5 focus:outline-none focus:ring-2 focus:ring-brand-400" />
+      </div>
+
+      <!-- Content Type + Body Format row -->
+      <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+
+        <!-- Content Type -->
+        <div>
+          <label class="block text-sm font-medium text-stone-700 mb-1.5">Content Type</label>
+          <select name="content_type" id="content-type-select"
+                  class="w-full text-sm rounded-xl border border-stone-200 px-4 py-2.5 focus:outline-none focus:ring-2 focus:ring-brand-400"
+                  onchange="toggleChapterFields(this.value)">
+            {% for ct in ['article', 'chapter', 'book'] %}
+            <option value="{{ ct }}" {% if content and content.content_type == ct %}selected{% endif %}>
+              {{ ct|title }}
+            </option>
+            {% endfor %}
+          </select>
+        </div>
+
+        <!-- Body Format -->
+        <div>
+          <label class="block text-sm font-medium text-stone-700 mb-1.5">Body Format</label>
+          <div class="flex gap-4 mt-1">
+            {% for fmt, lbl in [('markdown', 'Markdown'), ('richtext', 'Rich Text')] %}
+            <label class="flex items-center gap-2 cursor-pointer">
+              <input type="radio" name="body_format" value="{{ fmt }}"
+                     {% if (content and content.body_format == fmt) or (not content and fmt == 'markdown') %}checked{% endif %}
+                     class="text-brand-600 focus:ring-brand-400" />
+              <span class="text-sm text-stone-700">{{ lbl }}</span>
+            </label>
+            {% endfor %}
+          </div>
+        </div>
+      </div>
+
+      <!-- Category + Tags -->
+      <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+        <div>
+          <label class="block text-sm font-medium text-stone-700 mb-1.5">Category</label>
+          <input type="text" name="category"
+                 value="{{ content.category if content else '' }}"
+                 list="categories-list"
+                 placeholder="e.g. Wellness, Yoga, Nutrition"
+                 hx-get="{{ url_for('content.categories') }}"
+                 hx-trigger="keyup changed delay:300ms"
+                 hx-target="#categories-list"
+                 hx-vals='js:{"q": event.target.value}'
+                 class="w-full text-sm rounded-xl border border-stone-200 px-4 py-2.5 focus:outline-none focus:ring-2 focus:ring-brand-400" />
+          <datalist id="categories-list">
+            <option value="{{ content.category if content and content.category else '' }}">
+          </datalist>
+        </div>
+
+        <div>
+          <label class="block text-sm font-medium text-stone-700 mb-1.5">Tags</label>
+          <input type="text" name="tags"
+                 value="{{ tags_str if tags_str is defined else '' }}"
+                 placeholder="yoga, mindfulness, beginner"
+                 class="w-full text-sm rounded-xl border border-stone-200 px-4 py-2.5 focus:outline-none focus:ring-2 focus:ring-brand-400" />
+          <p class="text-xs text-stone-400 mt-1">Separate tags with commas</p>
+        </div>
+      </div>
+
+      <!-- Chapter-specific fields (parent + sort order) -->
+      <div id="chapter-fields" class="grid grid-cols-1 sm:grid-cols-2 gap-4
+           {% if not content or content.content_type != 'chapter' %}hidden{% endif %}">
+        <div>
+          <label class="block text-sm font-medium text-stone-700 mb-1.5">Parent Book</label>
+          <select name="parent_id"
+                  class="w-full text-sm rounded-xl border border-stone-200 px-4 py-2.5 focus:outline-none focus:ring-2 focus:ring-brand-400">
+            <option value="">— Select a book —</option>
+            {% for book in books %}
+            <option value="{{ book.id }}"
+              {% if content and content.parent_id == book.id %}selected{% endif %}>
+              {{ book.title }}
+            </option>
+            {% endfor %}
+          </select>
+        </div>
+        <div>
+          <label class="block text-sm font-medium text-stone-700 mb-1.5">Sort Order</label>
+          <input type="number" name="sort_order" min="0"
+                 value="{{ content.sort_order if content else 0 }}"
+                 class="w-full text-sm rounded-xl border border-stone-200 px-4 py-2.5 focus:outline-none focus:ring-2 focus:ring-brand-400" />
+        </div>
+      </div>
+
+    </div><!-- end top card -->
+
+    <!-- Body editor — split pane -->
+    <div class="bg-white rounded-2xl border border-stone-200 shadow-sm p-6">
+      <label class="block text-sm font-medium text-stone-700 mb-3">Body</label>
+      <div class="grid grid-cols-1 lg:grid-cols-2 gap-4">
+        <!-- Editor -->
+        <div>
+          <p class="text-xs text-stone-400 mb-1.5 font-medium">Write</p>
+          <textarea
+            id="body-input"
+            name="body"
+            rows="20"
+            placeholder="Start writing here… Markdown is supported."
+            class="w-full h-96 font-mono text-sm rounded-xl border border-stone-200 px-4 py-3 focus:outline-none focus:ring-2 focus:ring-brand-400 resize-y"
+          >{{ content.body if content else '' }}</textarea>
+        </div>
+        <!-- Preview -->
+        <div>
+          <p class="text-xs text-stone-400 mb-1.5 font-medium">Preview</p>
+          <div
+            id="preview-panel"
+            class="prose max-w-none prose-stone text-sm p-4 bg-stone-50 rounded-xl border border-stone-200 overflow-y-auto h-96"
+            hx-post="{{ url_for('content.preview') }}"
+            hx-trigger="keyup changed delay:500ms from:#body-input"
+            hx-include="#body-input"
+            hx-swap="innerHTML"
+          >
+            <p class="text-stone-400 italic text-sm">Preview will appear here…</p>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- File uploads -->
+    <div class="bg-white rounded-2xl border border-stone-200 shadow-sm p-6 space-y-5">
+      <h2 class="text-sm font-semibold text-stone-700">Media &amp; Attachments</h2>
+
+      <!-- Cover image -->
+      <div>
+        <label class="block text-sm font-medium text-stone-700 mb-1.5">Cover Image</label>
+        <label class="flex flex-col items-center justify-center w-full h-32 border-2 border-dashed border-stone-200 rounded-xl cursor-pointer hover:border-brand-400 hover:bg-brand-50 transition-colors">
+          <svg class="w-8 h-8 text-stone-300 mb-2" fill="none" stroke="currentColor" stroke-width="1.5" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M2.25 15.75l5.159-5.159a2.25 2.25 0 013.182 0l5.159 5.159m-1.5-1.5l1.409-1.409a2.25 2.25 0 013.182 0l2.909 2.909m-18 3.75h16.5a1.5 1.5 0 001.5-1.5V6a1.5 1.5 0 00-1.5-1.5H3.75A1.5 1.5 0 002.25 6v12a1.5 1.5 0 001.5 1.5zm10.5-11.25h.008v.008h-.008V8.25zm.375 0a.375.375 0 11-.75 0 .375.375 0 01.75 0z" />
+          </svg>
+          <p class="text-xs text-stone-400">Drag & drop or click — JPG, PNG (max 10 MB)</p>
+          <input type="file" name="cover" accept=".jpg,.jpeg,.png" class="hidden"
+                 onchange="this.previousElementSibling.textContent = this.files[0]?.name || 'No file chosen'" />
+        </label>
+        {% if content and content.cover_path %}
+        <p class="text-xs text-stone-400 mt-1">Current cover: <span class="text-brand-600">{{ content.cover_path|replace('/', ' / ') }}</span></p>
+        {% endif %}
+      </div>
+
+      <!-- Attachments -->
+      <div>
+        <label class="block text-sm font-medium text-stone-700 mb-1.5">Attachments</label>
+        <input type="file" name="attachments" multiple accept=".jpg,.jpeg,.png,.pdf"
+               class="w-full text-sm text-stone-500 file:mr-4 file:py-2 file:px-4 file:rounded-xl file:border-0 file:text-xs file:font-medium file:bg-brand-50 file:text-brand-700 hover:file:bg-brand-100 cursor-pointer" />
+        <p class="text-xs text-stone-400 mt-1">JPG, PNG, PDF — max 10 MB each</p>
+      </div>
+    </div>
+
+    <!-- Submit buttons -->
+    <div class="flex items-center justify-between gap-4 pb-8">
+      <a href="{{ url_for('content.editor_dashboard') }}"
+         class="text-sm text-stone-500 hover:text-stone-700 transition-colors">
+        Cancel
+      </a>
+      <div class="flex gap-3">
+        <button type="submit" name="status" value="draft"
+                class="px-5 py-2.5 text-sm font-medium bg-white border border-stone-200 text-stone-700 rounded-xl hover:border-brand-400 hover:text-brand-700 transition-colors shadow-sm">
+          Save Draft
+        </button>
+        <button type="submit" name="status" value="in_review"
+                class="px-5 py-2.5 text-sm font-medium bg-brand-600 text-white rounded-xl hover:bg-brand-700 transition-colors shadow-sm">
+          Save &amp; Submit for Review
+        </button>
+      </div>
+    </div>
+
+  </form>
+</div>
+
+<script>
+function toggleChapterFields(contentType) {
+  const fields = document.getElementById('chapter-fields');
+  if (contentType === 'chapter') {
+    fields.classList.remove('hidden');
+  } else {
+    fields.classList.add('hidden');
+  }
+}
+</script>
+{% endblock %}

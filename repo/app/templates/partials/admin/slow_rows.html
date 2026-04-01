@@ -1,0 +1,39 @@
+{% for e in slow %}
+<tr class="hover:bg-stone-50 transition-colors">
+  <td class="px-4 py-3">
+    <span class="font-semibold {% if e.latency_ms >= 3000 %}text-red-600{% elif e.latency_ms >= 2000 %}text-amber-600{% else %}text-stone-700{% endif %}">
+      {{ e.latency_ms }} ms
+    </span>
+  </td>
+  <td class="px-4 py-3">
+    {% if e.method %}
+    <span class="inline-block px-1.5 py-0.5 rounded text-xs font-mono font-medium bg-stone-100 text-stone-700">
+      {{ e.method }}
+    </span>
+    {% else %}
+    <span class="text-stone-400">—</span>
+    {% endif %}
+  </td>
+  <td class="px-4 py-3 font-mono text-xs text-stone-600 truncate max-w-[200px]">
+    {{ e.endpoint or '—' }}
+  </td>
+  <td class="px-4 py-3 text-xs">
+    {% if e.status_code %}
+    <span class="px-1.5 py-0.5 rounded font-mono
+      {% if e.status_code >= 500 %}bg-red-100 text-red-700
+      {% elif e.status_code >= 400 %}bg-amber-100 text-amber-700
+      {% else %}bg-emerald-100 text-emerald-700{% endif %}">
+      {{ e.status_code }}
+    </span>
+    {% else %}
+    <span class="text-stone-400">—</span>
+    {% endif %}
+  </td>
+  <td class="px-4 py-3 text-stone-500 text-xs">{{ e.user_id or '—' }}</td>
+  <td class="px-4 py-3 text-stone-400 text-xs whitespace-nowrap">{{ e.date }}</td>
+</tr>
+{% else %}
+<tr>
+  <td colspan="6" class="px-4 py-10 text-center text-stone-400 text-sm">No slow requests found.</td>
+</tr>
+{% endfor %}

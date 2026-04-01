@@ -1,0 +1,96 @@
+<form
+  method="post"
+  action="{{ url_for('auth.register') }}"
+  hx-post="{{ url_for('auth.register') }}"
+  hx-target="#register-form-container"
+  hx-swap="innerHTML"
+  hx-indicator="#reg-spinner"
+  class="space-y-5"
+>
+  <input type="hidden" name="csrf_token" value="{{ csrf_token() }}" />
+
+  {% if errors.general %}
+  <div class="rounded-lg bg-red-50 border border-red-300 px-4 py-3 text-sm text-red-700">
+    {{ errors.general }}
+  </div>
+  {% endif %}
+
+  <div>
+    <label for="username" class="block text-sm font-medium text-stone-700 mb-1">Username</label>
+    <input
+      id="username"
+      name="username"
+      type="text"
+      autocomplete="username"
+      value="{{ form_data.get('username', '') }}"
+      class="w-full rounded-lg border {% if errors.username %}border-red-400 bg-red-50{% else %}border-stone-300{% endif %} px-3 py-2 text-sm shadow-sm focus:outline-none focus:ring-2 focus:ring-brand-500 focus:border-brand-500 transition"
+      placeholder="janedoe"
+    />
+    {% if errors.username %}
+    <p class="mt-1 text-xs text-red-600">{{ errors.username }}</p>
+    {% else %}
+    <p class="mt-1 text-xs text-stone-400">3–80 characters: letters, numbers, underscores</p>
+    {% endif %}
+  </div>
+
+  <div>
+    <label for="email" class="block text-sm font-medium text-stone-700 mb-1">Email</label>
+    <input
+      id="email"
+      name="email"
+      type="email"
+      autocomplete="email"
+      value="{{ form_data.get('email', '') }}"
+      class="w-full rounded-lg border {% if errors.email %}border-red-400 bg-red-50{% else %}border-stone-300{% endif %} px-3 py-2 text-sm shadow-sm focus:outline-none focus:ring-2 focus:ring-brand-500 focus:border-brand-500 transition"
+      placeholder="jane@example.com"
+    />
+    {% if errors.email %}
+    <p class="mt-1 text-xs text-red-600">{{ errors.email }}</p>
+    {% endif %}
+  </div>
+
+  <div>
+    <label for="password" class="block text-sm font-medium text-stone-700 mb-1">Password</label>
+    <input
+      id="password"
+      name="password"
+      type="password"
+      autocomplete="new-password"
+      class="w-full rounded-lg border {% if errors.password %}border-red-400 bg-red-50{% else %}border-stone-300{% endif %} px-3 py-2 text-sm shadow-sm focus:outline-none focus:ring-2 focus:ring-brand-500 focus:border-brand-500 transition"
+      placeholder="Min. 10 chars, 1 uppercase, 1 digit"
+    />
+    {% if errors.password %}
+    <p class="mt-1 text-xs text-red-600">{{ errors.password }}</p>
+    {% else %}
+    <p class="mt-1 text-xs text-stone-400">At least 10 characters, one uppercase letter, one digit</p>
+    {% endif %}
+  </div>
+
+  <div>
+    <label for="confirm" class="block text-sm font-medium text-stone-700 mb-1">Confirm Password</label>
+    <input
+      id="confirm"
+      name="confirm"
+      type="password"
+      autocomplete="new-password"
+      class="w-full rounded-lg border {% if errors.confirm %}border-red-400 bg-red-50{% else %}border-stone-300{% endif %} px-3 py-2 text-sm shadow-sm focus:outline-none focus:ring-2 focus:ring-brand-500 focus:border-brand-500 transition"
+      placeholder="Repeat your password"
+    />
+    {% if errors.confirm %}
+    <p class="mt-1 text-xs text-red-600">{{ errors.confirm }}</p>
+    {% endif %}
+  </div>
+
+  <button
+    type="submit"
+    class="w-full bg-brand-600 hover:bg-brand-700 text-white font-medium py-2.5 rounded-lg text-sm transition-colors focus:outline-none focus:ring-2 focus:ring-brand-500 focus:ring-offset-2 flex items-center justify-center gap-2"
+  >
+    <span id="reg-spinner" class="htmx-indicator">
+      <svg class="animate-spin w-4 h-4" fill="none" viewBox="0 0 24 24">
+        <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"/>
+        <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8H4z"/>
+      </svg>
+    </span>
+    Create Account
+  </button>
+</form>

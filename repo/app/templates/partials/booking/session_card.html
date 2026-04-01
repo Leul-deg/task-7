@@ -1,0 +1,83 @@
+<div class="bg-white rounded-xl shadow-sm border border-slate-100 p-5 hover:shadow-md transition-shadow"
+     id="session-card-{{ session.id }}">
+
+  <!-- Header: Title + Time badge -->
+  <div class="flex justify-between items-start mb-3 gap-2">
+    <h3 class="text-lg font-semibold text-slate-800 leading-tight">
+      <a href="/schedule/sessions/{{ session.id }}"
+         class="hover:text-teal-600 transition-colors">
+        {{ session.title }}
+      </a>
+    </h3>
+    <span class="shrink-0 text-xs font-medium text-teal-700 bg-teal-50 border border-teal-100 px-2.5 py-1 rounded-full whitespace-nowrap">
+      {{ session.start_time }} – {{ session.end_time }}
+    </span>
+  </div>
+
+  <!-- Details -->
+  <div class="space-y-0.5 text-sm text-slate-500 mb-4">
+    <p class="flex items-center gap-1.5">
+      <svg class="w-3.5 h-3.5 text-slate-400 shrink-0" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+        <path stroke-linecap="round" stroke-linejoin="round" d="M15.75 6a3.75 3.75 0 11-7.5 0 3.75 3.75 0 017.5 0zM4.501 20.118a7.5 7.5 0 0114.998 0A17.933 17.933 0 0112 21.75c-2.676 0-5.216-.584-7.499-1.632z"/>
+      </svg>
+      {{ session.instructor_name }}
+    </p>
+    <p class="flex items-center gap-1.5">
+      <svg class="w-3.5 h-3.5 text-slate-400 shrink-0" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+        <path stroke-linecap="round" stroke-linejoin="round" d="M2.25 12l8.954-8.955c.44-.439 1.152-.439 1.591 0L21.75 12M4.5 9.75v10.125c0 .621.504 1.125 1.125 1.125H9.75v-4.875c0-.621.504-1.125 1.125-1.125h2.25c.621 0 1.125.504 1.125 1.125V21h4.125c.621 0 1.125-.504 1.125-1.125V9.75M8.25 21h8.25"/>
+      </svg>
+      {{ session.room_name }}
+    </p>
+    <p class="flex items-center gap-1.5">
+      <svg class="w-3.5 h-3.5 text-slate-400 shrink-0" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+        <path stroke-linecap="round" stroke-linejoin="round" d="M6.75 3v2.25M17.25 3v2.25M3 18.75V7.5a2.25 2.25 0 012.25-2.25h13.5A2.25 2.25 0 0121 7.5v11.25m-18 0A2.25 2.25 0 005.25 21h13.5"/>
+      </svg>
+      {{ session.date }}
+    </p>
+  </div>
+
+  <!-- Capacity Bar -->
+  <div class="mb-4">
+    <div class="flex justify-between text-xs text-slate-400 mb-1">
+      <span>{{ session.spots_remaining }} of {{ session.capacity }} spots left</span>
+      {% set fill_pct = ((session.booked_count / session.capacity) * 100)|int %}
+      <span>{{ fill_pct }}% full</span>
+    </div>
+    <div class="w-full bg-slate-100 rounded-full h-2 overflow-hidden">
+      {% set fill_pct = ((session.booked_count / session.capacity) * 100)|int %}
+      <div class="h-2 rounded-full transition-all
+        {% if fill_pct >= 90 %}bg-red-400
+        {% elif fill_pct >= 70 %}bg-amber-400
+        {% else %}bg-teal-400{% endif %}"
+        style="width: {{ fill_pct }}%">
+      </div>
+    </div>
+  </div>
+
+  <!-- Action area (swapped by HTMX on booking) -->
+  <div id="session-action-{{ session.id }}">
+    {% if session.is_full %}
+      <button
+        hx-post="/booking/waitlist"
+        hx-vals='{"session_id": "{{ session.id }}"}'
+        hx-target="#session-action-{{ session.id }}"
+        hx-swap="innerHTML"
+        class="w-full py-2 px-4 bg-amber-500 hover:bg-amber-600 text-white rounded-lg text-sm font-medium transition-colors focus:outline-none focus:ring-2 focus:ring-amber-400 focus:ring-offset-1">
+        Join Waitlist
+      </button>
+    {% else %}
+      <button
+        hx-post="/booking/reserve"
+        hx-vals='{"session_id": "{{ session.id }}"}'
+        hx-target="#session-action-{{ session.id }}"
+        hx-swap="innerHTML"
+        hx-indicator="#spinner-{{ session.id }}"
+        class="w-full py-2 px-4 bg-teal-600 hover:bg-teal-700 text-white rounded-lg text-sm font-medium transition-colors focus:outline-none focus:ring-2 focus:ring-teal-500 focus:ring-offset-1">
+        Book Now
+      </button>
+      <div id="spinner-{{ session.id }}" class="htmx-indicator text-center py-2 text-sm text-slate-400">
+        Booking…
+      </div>
+    {% endif %}
+  </div>
+</div>

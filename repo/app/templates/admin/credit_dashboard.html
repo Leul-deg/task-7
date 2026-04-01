@@ -1,0 +1,95 @@
+{% extends "base.html" %}
+{% block title %}Credit Dashboard — StudioOps{% endblock %}
+
+{% block content %}
+<div class="max-w-5xl mx-auto space-y-8">
+
+  <!-- Header -->
+  <div class="flex items-start justify-between gap-4 flex-wrap">
+    <div>
+      <h1 class="text-2xl font-bold text-stone-800">Credit Dashboard</h1>
+      <p class="text-sm text-stone-500 mt-0.5">{{ customers | length }} customer{{ 's' if customers | length != 1 }}</p>
+    </div>
+    <a href="{{ url_for('admin.dashboard') }}" class="text-sm text-brand-600 hover:underline">← Dashboard</a>
+  </div>
+
+  <!-- Distribution summary -->
+  <div class="grid grid-cols-5 gap-2">
+    {% set bracket_colors = {
+      '0-19':  ('bg-red-500',    'bg-red-50',    'text-red-700',    'border-red-200'),
+      '20-49': ('bg-orange-400', 'bg-orange-50', 'text-orange-700', 'border-orange-200'),
+      '50-69': ('bg-amber-400',  'bg-amber-50',  'text-amber-700',  'border-amber-200'),
+      '70-99': ('bg-lime-500',   'bg-lime-50',   'text-lime-700',   'border-lime-200'),
+      '100+':  ('bg-emerald-500','bg-emerald-50','text-emerald-700','border-emerald-200'),
+    } %}
+    {% for bracket, count in distribution.items() %}
+    {% set bar_cls, bg_cls, text_cls, border_cls = bracket_colors.get(bracket, ('bg-stone-400','bg-stone-50','text-stone-700','border-stone-200')) %}
+    <div class="rounded-2xl border {{ border_cls }} {{ bg_cls }} p-3 text-center">
+      <p class="text-xl font-bold {{ text_cls }}">{{ count }}</p>
+      <p class="text-xs {{ text_cls }} mt-0.5">{{ bracket }}</p>
+    </div>
+    {% endfor %}
+  </div>
+
+  <!-- Filter tabs -->
+  <div class="flex items-center gap-2 flex-wrap">
+    {% for val, label in [('all','All'), ('Normal','Normal'), ('At Risk','At Risk'), ('Restricted','Restricted')] %}
+    <a href="{{ url_for('staff.credit_dashboard', filter=val) }}"
+       class="px-3 py-1.5 text-xs font-medium rounded-lg border transition-colors
+              {% if filter_status == val %}bg-brand-600 text-white border-brand-600
+              {% else %}bg-white text-stone-600 border-stone-200 hover:border-brand-400{% endif %}">
+      {{ label }}
+    </a>
+    {% endfor %}
+  </div>
+
+  <!-- Table -->
+  {% if customers %}
+  <div class="bg-white rounded-2xl border border-stone-200 shadow-sm overflow-hidden">
+    <table class="w-full text-sm text-stone-600">
+      <thead class="bg-stone-50 border-b border-stone-200">
+        <tr class="text-left text-xs font-semibold text-stone-500 uppercase tracking-wider">
+          <th class="px-5 py-3">Customer</th>
+          <th class="px-5 py-3">Score</th>
+          <th class="px-5 py-3">Status</th>
+          <th class="px-5 py-3">Last Activity</th>
+          <th class="px-5 py-3"></th>
+        </tr>
+      </thead>
+      <tbody class="divide-y divide-stone-100">
+        {% for c in customers %}
+        <tr class="hover:bg-stone-50 transition-colors">
+          <td class="px-5 py-3 font-medium text-stone-800">{{ c.username }}</td>
+          <td class="px-5 py-3">
+            <div class="flex items-center gap-2">
+              <div class="w-24 bg-stone-100 rounded-full h-2 overflow-hidden">
+                <div class="{{ c.color.split()[0] }} h-2 rounded-full"
+                     style="width: {{ [c.score / 2, 100] | min }}%"></div>
+              </div>
+              <span class="font-semibold text-stone-700 tabular-nums">{{ c.score }}</span>
+            </div>
+          </td>
+          <td class="px-5 py-3">
+            <span class="text-xs font-semibold px-2.5 py-0.5 rounded-full border capitalize
+                         {{ c.color }}">
+              {{ c.status }}
+            </span>
+          </td>
+          <td class="px-5 py-3 text-stone-400 text-xs">{{ c.last_activity or '—' }}</td>
+          <td class="px-5 py-3 text-right">
+            <a href="{{ url_for('staff.credit_history', user_id=c.user_id) }}"
+               class="text-xs text-brand-600 hover:underline">History →</a>
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  {% else %}
+  <div class="bg-white rounded-2xl border border-stone-200 shadow-sm p-12 text-center text-stone-400">
+    <p class="font-medium">No customers match this filter.</p>
+  </div>
+  {% endif %}
+
+</div>
+{% endblock %}

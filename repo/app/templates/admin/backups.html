@@ -1,0 +1,89 @@
+{% extends "base.html" %}
+{% block title %}Backups — StudioOps{% endblock %}
+
+{% block content %}
+<div class="max-w-4xl mx-auto space-y-6">
+
+  <div class="flex items-center justify-between flex-wrap gap-3">
+    <div>
+      <h1 class="text-2xl font-bold text-stone-800">Backup Management</h1>
+      <p class="text-sm text-stone-500 mt-0.5">Create, restore, and manage database and file backups</p>
+    </div>
+    <a href="{{ url_for('admin.index') }}"
+       class="text-sm text-stone-500 hover:text-brand-700 transition-colors">← Admin</a>
+  </div>
+
+  <!-- Action bar -->
+  <div class="bg-white rounded-2xl border border-stone-200 shadow-sm p-5">
+    <h2 class="text-sm font-semibold text-stone-700 mb-4">Create Backup</h2>
+    <div class="flex flex-wrap items-center gap-3">
+      <form hx-post="{{ url_for('admin.backup_db') }}"
+            hx-target="#backup-tbody"
+            hx-swap="innerHTML">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}" />
+        <button type="submit"
+                class="text-sm font-medium bg-brand-600 text-white px-4 py-2 rounded-lg hover:bg-brand-700 transition-colors">
+          Backup Database
+        </button>
+      </form>
+
+      <form hx-post="{{ url_for('admin.backup_files') }}"
+            hx-target="#backup-tbody"
+            hx-swap="innerHTML">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}" />
+        <button type="submit"
+                class="text-sm font-medium border border-stone-200 text-stone-700 px-4 py-2 rounded-lg hover:border-brand-400 hover:text-brand-700 transition-colors">
+          Backup Files (ZIP)
+        </button>
+      </form>
+
+      <div class="border-l border-stone-200 pl-4 flex items-center gap-2">
+        <form hx-post="{{ url_for('admin.backup_enforce_retention') }}"
+              hx-target="#backup-tbody"
+              hx-swap="innerHTML"
+              class="flex items-center gap-2">
+          <input type="hidden" name="csrf_token" value="{{ csrf_token() }}" />
+          <label class="text-xs text-stone-500">Keep last</label>
+          <input type="number" name="max_backups" value="30" min="1" max="365"
+                 class="text-sm border border-stone-200 rounded-lg px-2 py-1.5 w-16 focus:outline-none focus:ring-2 focus:ring-brand-400" />
+          <button type="submit"
+                  class="text-sm font-medium text-amber-700 border border-amber-200 px-3 py-1.5 rounded-lg hover:bg-amber-50 transition-colors">
+            Enforce Retention
+          </button>
+        </form>
+      </div>
+    </div>
+  </div>
+
+  <!-- Restore feedback area -->
+  <div id="restore-result"></div>
+
+  <!-- Backups table -->
+  <div class="bg-white rounded-2xl border border-stone-200 shadow-sm overflow-hidden">
+    {% if backups %}
+    <div class="overflow-x-auto">
+      <table class="min-w-full text-sm">
+        <thead>
+          <tr class="text-xs text-stone-400 uppercase tracking-wider bg-stone-50 border-b border-stone-100">
+            <th class="px-4 py-3 text-left">ID</th>
+            <th class="px-4 py-3 text-left">Type</th>
+            <th class="px-4 py-3 text-left">Size</th>
+            <th class="px-4 py-3 text-left">Status</th>
+            <th class="px-4 py-3 text-left">Created</th>
+            <th class="px-4 py-3 text-right">Actions</th>
+          </tr>
+        </thead>
+        <tbody id="backup-tbody" class="divide-y divide-stone-100">
+          {% include "partials/admin/backup_rows.html" %}
+        </tbody>
+      </table>
+    </div>
+    {% else %}
+    <div class="py-16 text-center text-stone-400">
+      <p class="text-sm">No backups found. Create your first backup above.</p>
+    </div>
+    {% endif %}
+  </div>
+
+</div>
+{% endblock %}

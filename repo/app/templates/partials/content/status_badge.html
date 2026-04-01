@@ -1,0 +1,17 @@
+{% set status_val = status if status is defined else item.status %}
+{% set status_styles = {
+  'draft':     'bg-slate-100 text-slate-600 border-slate-200',
+  'in_review': 'bg-amber-100 text-amber-700 border-amber-200',
+  'published': 'bg-emerald-100 text-emerald-700 border-emerald-200',
+  'rejected':  'bg-red-100 text-red-700 border-red-200',
+} %}
+{% set status_labels = {
+  'draft':     'Draft',
+  'in_review': 'In Review',
+  'published': 'Published',
+  'rejected':  'Rejected',
+} %}
+<span class="text-xs font-semibold px-2.5 py-0.5 rounded-full border whitespace-nowrap
+             {{ status_styles.get(status_val, 'bg-stone-100 text-stone-500 border-stone-200') }}">
+  {{ status_labels.get(status_val, status_val|title) }}
+</span>

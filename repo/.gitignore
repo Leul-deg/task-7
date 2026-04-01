@@ -1,0 +1,53 @@
+# Python
+__pycache__/
+*.py[cod]
+*.pyo
+*.pyd
+.Python
+*.egg
+*.egg-info/
+dist/
+build/
+.eggs/
+venv/
+.venv/
+env/
+ENV/
+
+# Flask / SQLite
+instance/
+*.db
+*.sqlite3
+
+# Flask-Migrate (keep __pycache__ out but preserve version scripts)
+migrations/versions/__pycache__/
+
+# Environment
+.env
+.env.*
+!.env.example
+
+# Uploads, backups, logs (runtime data)
+uploads/
+backups/
+logs/
+
+# Testing
+.pytest_cache/
+htmlcov/
+.coverage
+coverage.xml
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Docker
+*.env.local
+docker-compose.override.yml

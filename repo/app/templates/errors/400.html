@@ -1,0 +1,10 @@
+{% extends "base.html" %}
+{% block title %}400 Bad Request — StudioOps{% endblock %}
+{% block content %}
+<div class="text-center py-24">
+  <p class="text-6xl font-bold text-stone-300">400</p>
+  <h1 class="mt-4 text-2xl font-semibold text-stone-700">Bad Request</h1>
+  <p class="mt-2 text-stone-500">{{ error }}</p>
+  <a href="/" class="mt-6 inline-block text-brand-600 hover:underline text-sm">Go home</a>
+</div>
+{% endblock %}

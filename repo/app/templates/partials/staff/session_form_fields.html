@@ -1,0 +1,97 @@
+<!-- Title -->
+<div class="lg:col-span-2">
+  <label class="block text-xs font-medium text-slate-600 mb-1">Title <span class="text-red-500">*</span></label>
+  <input type="text" name="title" value="{{ session.title if session else '' }}" maxlength="200" required
+    class="w-full border border-slate-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-teal-500 focus:border-teal-500 outline-none"
+    placeholder="e.g. Morning Vinyasa Yoga"/>
+</div>
+
+<!-- Capacity -->
+<div>
+  <label class="block text-xs font-medium text-slate-600 mb-1">Capacity <span class="text-red-500">*</span></label>
+  <input type="number" name="capacity" min="1" value="{{ session.capacity if session else '' }}" required
+    class="w-full border border-slate-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-teal-500 focus:border-teal-500 outline-none"/>
+</div>
+
+<!-- Instructor -->
+<div>
+  <label class="block text-xs font-medium text-slate-600 mb-1">Instructor <span class="text-red-500">*</span></label>
+  <select name="instructor_id" required
+    class="w-full border border-slate-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-teal-500 outline-none">
+    <option value="">— Select instructor —</option>
+    {% for u in staff_users %}
+    <option value="{{ u.id }}"
+      {% if session and session.instructor_id == u.id %}selected{% endif %}>
+      {{ u.username }}
+    </option>
+    {% endfor %}
+  </select>
+</div>
+
+<!-- Room -->
+<div>
+  <label class="block text-xs font-medium text-slate-600 mb-1">Room <span class="text-red-500">*</span></label>
+  <select name="room_id" required
+    class="w-full border border-slate-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-teal-500 outline-none">
+    <option value="">— Select room —</option>
+    {% for r in rooms %}
+    <option value="{{ r.id }}"
+      {% if session and session.room_id == r.id %}selected{% endif %}>
+      {{ r.name }}
+    </option>
+    {% endfor %}
+  </select>
+</div>
+
+<!-- Date -->
+<div>
+  <label class="block text-xs font-medium text-slate-600 mb-1">Date <span class="text-red-500">*</span></label>
+  <input type="text" name="date" placeholder="MM/DD/YYYY"
+    value="{{ session.start_time.strftime('%m/%d/%Y') if session else '' }}"
+    required
+    class="w-full border border-slate-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-teal-500 focus:border-teal-500 outline-none"/>
+</div>
+
+<!-- Start time -->
+<div>
+  <label class="block text-xs font-medium text-slate-600 mb-1">Start Time (HH:MM) <span class="text-red-500">*</span></label>
+  <input type="time" name="start_time"
+    value="{{ session.start_time.strftime('%H:%M') if session else '' }}"
+    required
+    class="w-full border border-slate-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-teal-500 focus:border-teal-500 outline-none"/>
+</div>
+
+<!-- End time -->
+<div>
+  <label class="block text-xs font-medium text-slate-600 mb-1">End Time (HH:MM) <span class="text-red-500">*</span></label>
+  <input type="time" name="end_time"
+    value="{{ session.end_time.strftime('%H:%M') if session else '' }}"
+    required
+    class="w-full border border-slate-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-teal-500 focus:border-teal-500 outline-none"/>
+</div>
+
+<!-- Description -->
+<div class="sm:col-span-2">
+  <label class="block text-xs font-medium text-slate-600 mb-1">Description</label>
+  <textarea name="description" rows="2"
+    class="w-full border border-slate-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-teal-500 focus:border-teal-500 outline-none resize-none"
+    placeholder="Optional class description">{{ session.description if session else '' }}</textarea>
+</div>
+
+<!-- Equipment -->
+{% if equipment %}
+<div class="sm:col-span-2 lg:col-span-3">
+  <label class="block text-xs font-medium text-slate-600 mb-2">Equipment</label>
+  <div class="flex flex-wrap gap-3">
+    {% for eq in equipment %}
+    {% set eq_ids_list = (session.equipment_ids | from_json) if session and session.equipment_ids else [] %}
+    <label class="inline-flex items-center gap-2 text-sm text-slate-600 cursor-pointer">
+      <input type="checkbox" name="equipment_ids" value="{{ eq.id }}"
+        {% if eq.id in eq_ids_list %}checked{% endif %}
+        class="rounded border-slate-300 text-teal-600 focus:ring-teal-500"/>
+      {{ eq.name }}
+    </label>
+    {% endfor %}
+  </div>
+</div>
+{% endif %}

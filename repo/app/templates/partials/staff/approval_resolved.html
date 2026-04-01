@@ -1,0 +1,16 @@
+<div class="approval-card rounded-xl border px-5 py-4
+  {% if approved %}bg-emerald-50 border-emerald-200{% else %}bg-slate-50 border-slate-200{% endif %}">
+  <div class="flex items-center gap-2 text-sm font-medium
+    {% if approved %}text-emerald-700{% else %}text-slate-500{% endif %}">
+    {% if approved %}
+    <svg class="w-4 h-4 shrink-0" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24">
+      <path stroke-linecap="round" stroke-linejoin="round" d="M4.5 12.75l6 6 9-13.5"/>
+    </svg>
+    {% else %}
+    <svg class="w-4 h-4 shrink-0" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+      <path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12"/>
+    </svg>
+    {% endif %}
+    {{ message }}
+  </div>
+</div>

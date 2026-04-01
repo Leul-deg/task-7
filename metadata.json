@@ -1,0 +1,9 @@
+{
+  "prompt": "Design a StudioOps Scheduler & Content Console to run an offline-first wellness studio that manages class reservations, publishes structured training content, and continuously improves service quality through measurable reviews and on-prem analytics.",
+  "project_type": "fullstack",
+  "frontend_language": "server",
+  "backend_language": "python",
+  "frontend_framework": "htmx",
+  "backend_framework": "flask",
+  "database": "sqlite"
+}

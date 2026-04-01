@@ -1,0 +1,49 @@
+<tr id="session-row-{{ session.id }}" class="hover:bg-slate-50 transition-colors">
+  <td class="px-4 py-3 font-medium text-slate-800">
+    {{ session.title }}
+    {% if warnings %}
+    <span class="ml-1 text-xs font-medium text-orange-600 bg-orange-50 border border-orange-200 px-1.5 py-0.5 rounded-full">!</span>
+    {% endif %}
+  </td>
+  <td class="px-4 py-3 text-slate-600 text-sm">
+    {{ session.instructor.username if session.instructor else '—' }}
+  </td>
+  <td class="px-4 py-3 text-slate-600 text-sm">
+    {{ session.room.name if session.room else '—' }}
+  </td>
+  <td class="px-4 py-3 text-slate-500 text-xs whitespace-nowrap">
+    {{ session.start_time.strftime("%m/%d/%Y") }}
+  </td>
+  <td class="px-4 py-3 text-slate-500 text-xs whitespace-nowrap">
+    {{ session.start_time.strftime("%I:%M %p").lstrip("0") }} –
+    {{ session.end_time.strftime("%I:%M %p").lstrip("0") }}
+  </td>
+  <td class="px-4 py-3 text-slate-600 text-sm">{{ session.capacity }}</td>
+  <td class="px-4 py-3">
+    {% if session.is_active %}
+    <span class="text-xs font-medium text-emerald-700 bg-emerald-50 border border-emerald-200 px-2 py-0.5 rounded-full">Active</span>
+    {% else %}
+    <span class="text-xs font-medium text-slate-400 bg-slate-100 border border-slate-200 px-2 py-0.5 rounded-full">Inactive</span>
+    {% endif %}
+  </td>
+  <td class="px-4 py-3">
+    <div class="flex gap-2">
+      <button
+        hx-get="/staff/session/{{ session.id }}/roster"
+        hx-target="#edit-session-modal"
+        hx-swap="innerHTML"
+        hx-on::after-request="document.getElementById('edit-session-dialog').showModal()"
+        class="px-2.5 py-1 text-xs font-medium text-teal-700 bg-teal-50 border border-teal-200 rounded-lg hover:bg-teal-100 transition-colors">
+        Roster
+      </button>
+      <button
+        hx-post="/staff/sessions/{{ session.id }}/delete"
+        hx-target="#session-row-{{ session.id }}"
+        hx-swap="outerHTML swap:0.3s"
+        hx-confirm="Deactivate '{{ session.title }}'?"
+        class="px-2.5 py-1 text-xs font-medium text-red-600 bg-red-50 border border-red-200 rounded-lg hover:bg-red-100 transition-colors">
+        Delete
+      </button>
+    </div>
+  </td>
+</tr>

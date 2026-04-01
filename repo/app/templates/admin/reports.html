@@ -1,0 +1,83 @@
+{% extends "base.html" %}
+{% block title %}Export Reports — StudioOps{% endblock %}
+
+{% block content %}
+<div class="max-w-2xl mx-auto space-y-8">
+
+  <div class="flex items-center justify-between">
+    <div>
+      <h1 class="text-2xl font-bold text-stone-800">Export Reports</h1>
+      <p class="text-sm text-stone-500 mt-0.5">Download raw data as CSV or JSON.</p>
+    </div>
+    <a href="{{ url_for('admin.dashboard') }}" class="text-sm text-brand-600 hover:underline">← Dashboard</a>
+  </div>
+
+  <div class="bg-white rounded-2xl border border-stone-200 shadow-sm p-6">
+    <form method="POST" action="{{ url_for('admin.reports_generate') }}" class="space-y-5">
+      <input type="hidden" name="csrf_token" value="{{ csrf_token() }}" />
+
+      <!-- Report Type -->
+      <div>
+        <label class="block text-sm font-medium text-stone-700 mb-1.5">Report Type</label>
+        <div class="grid grid-cols-2 sm:grid-cols-3 gap-2">
+          {% for val, label in [
+            ('overview', 'Overview Metrics'),
+            ('trends',   'Booking Trends'),
+            ('funnel',   'Booking Funnel'),
+            ('reviews',  'Review Summary'),
+            ('credit',   'Credit Scores'),
+          ] %}
+          <label class="flex items-center gap-2 cursor-pointer border border-stone-200 rounded-xl px-3 py-2.5
+                         has-[:checked]:border-brand-500 has-[:checked]:bg-brand-50 transition-colors">
+            <input type="radio" name="report_type" value="{{ val }}"
+                   {% if val == 'overview' %}checked{% endif %}
+                   class="accent-brand-600" />
+            <span class="text-sm text-stone-700">{{ label }}</span>
+          </label>
+          {% endfor %}
+        </div>
+      </div>
+
+      <!-- Date Range -->
+      <div class="grid sm:grid-cols-2 gap-4">
+        <div>
+          <label class="block text-sm font-medium text-stone-700 mb-1.5">Start Date</label>
+          <input type="text" name="start" value="{{ default_start }}" placeholder="MM/DD/YYYY"
+                 class="w-full text-sm border border-stone-200 rounded-xl px-3 py-2 focus:outline-none focus:ring-2 focus:ring-brand-400" />
+        </div>
+        <div>
+          <label class="block text-sm font-medium text-stone-700 mb-1.5">End Date</label>
+          <input type="text" name="end" value="{{ default_end }}" placeholder="MM/DD/YYYY"
+                 class="w-full text-sm border border-stone-200 rounded-xl px-3 py-2 focus:outline-none focus:ring-2 focus:ring-brand-400" />
+        </div>
+      </div>
+
+      <!-- Format -->
+      <div>
+        <label class="block text-sm font-medium text-stone-700 mb-1.5">Format</label>
+        <div class="flex gap-3">
+          {% for val, label in [('csv', 'CSV'), ('json', 'JSON')] %}
+          <label class="flex items-center gap-2 cursor-pointer border border-stone-200 rounded-xl px-4 py-2
+                         has-[:checked]:border-brand-500 has-[:checked]:bg-brand-50 transition-colors">
+            <input type="radio" name="format" value="{{ val }}"
+                   {% if val == 'csv' %}checked{% endif %}
+                   class="accent-brand-600" />
+            <span class="text-sm font-medium text-stone-700">{{ label }}</span>
+          </label>
+          {% endfor %}
+        </div>
+      </div>
+
+      <div class="pt-2 border-t border-stone-100 flex justify-end gap-3">
+        <a href="{{ url_for('admin.dashboard') }}"
+           class="text-sm text-stone-500 hover:text-stone-700 px-4 py-2">Cancel</a>
+        <button type="submit"
+                class="text-sm font-medium bg-brand-600 text-white px-6 py-2 rounded-xl hover:bg-brand-700 transition-colors">
+          Download Report
+        </button>
+      </div>
+    </form>
+  </div>
+
+</div>
+{% endblock %}

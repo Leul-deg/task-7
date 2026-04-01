@@ -1,0 +1,28 @@
+{% set cat_classes = {
+  'success': 'bg-green-50 border-green-400 text-green-800',
+  'error':   'bg-red-50 border-red-400 text-red-800',
+  'warning': 'bg-amber-50 border-amber-400 text-amber-800',
+  'info':    'bg-blue-50 border-blue-400 text-blue-800',
+} %}
+{% set cls = cat_classes.get(category, 'bg-stone-50 border-stone-400 text-stone-700') %}
+<div class="flash-msg flex items-start gap-3 border-l-4 rounded-md px-4 py-3 mb-3 {{ cls }}"
+     role="alert">
+  <span class="flex-1 text-sm">{{ message }}</span>
+  <button type="button"
+          onclick="this.closest('.flash-msg').remove()"
+          class="text-current opacity-50 hover:opacity-100 transition-opacity text-lg leading-none"
+          aria-label="Dismiss">&times;</button>
+</div>
+<script>
+  (function () {
+    var msgs = document.querySelectorAll('.flash-msg');
+    var last = msgs[msgs.length - 1];
+    if (last) {
+      setTimeout(function () {
+        last.style.transition = 'opacity 0.4s';
+        last.style.opacity = '0';
+        setTimeout(function () { last.remove(); }, 400);
+      }, 5000);
+    }
+  })();
+</script>

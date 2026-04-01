@@ -1,0 +1,127 @@
+{% extends "base.html" %}
+{% block title %}{{ content.title }} — StudioOps{% endblock %}
+
+{% block content %}
+<div class="max-w-4xl mx-auto space-y-8">
+
+  <!-- Book sidebar + main content layout -->
+  <div class="{% if content.content_type == 'book' %}lg:grid lg:grid-cols-[1fr_280px] lg:gap-8{% endif %}">
+
+    <!-- Main reading column -->
+    <article class="min-w-0">
+
+      <!-- Metadata bar -->
+      <header class="mb-6">
+        <div class="flex flex-wrap gap-2 items-center text-xs text-stone-400 mb-3">
+          <span class="font-medium text-stone-600">{{ content.author_name }}</span>
+          <span>&middot;</span>
+          {% if content.published_at %}
+          <span>{{ content.published_at }}</span>
+          <span>&middot;</span>
+          {% endif %}
+          {% if content.category %}
+          <span class="bg-stone-100 text-stone-600 px-2 py-0.5 rounded-full">{{ content.category }}</span>
+          {% endif %}
+          <span class="ml-auto text-stone-300">v{{ content.current_version }}</span>
+        </div>
+
+        <h1 class="text-3xl font-bold text-stone-900 leading-tight mb-3">{{ content.title }}</h1>
+
+        <!-- Tags -->
+        {% if content.tags %}
+        <div class="flex flex-wrap gap-1.5">
+          {% for tag in content.tags %}
+          <span class="text-xs bg-brand-50 text-brand-700 px-2 py-0.5 rounded-full">#{{ tag }}</span>
+          {% endfor %}
+        </div>
+        {% endif %}
+      </header>
+
+      <!-- Cover image -->
+      {% if content.cover_path %}
+      <div class="mb-6 rounded-2xl overflow-hidden">
+        <img src="{{ content.cover_path }}" alt="{{ content.title }}" class="w-full object-cover max-h-80" />
+      </div>
+      {% endif %}
+
+      <!-- Body -->
+      <div class="prose prose-stone max-w-none prose-headings:font-semibold prose-a:text-brand-600">
+        {{ content.body_html|safe }}
+      </div>
+
+      <!-- Attachments -->
+      {% if content.attachments %}
+      <section class="mt-10 pt-6 border-t border-stone-200">
+        <h2 class="text-sm font-semibold text-stone-700 uppercase tracking-wider mb-4">Attachments</h2>
+        <ul class="space-y-2">
+          {% for att in content.attachments %}
+          {% set type_icons = {'pdf': '📄', 'jpg': '🖼️', 'jpeg': '🖼️', 'png': '🖼️'} %}
+          <li class="flex items-center gap-3 p-3 bg-stone-50 rounded-xl border border-stone-100 hover:border-brand-200 transition-colors">
+            <span class="text-2xl">{{ type_icons.get(att.file_type, '📎') }}</span>
+            <div class="min-w-0 flex-1">
+              <p class="text-sm font-medium text-stone-800 truncate">{{ att.original_filename }}</p>
+              <p class="text-xs text-stone-400">
+                {{ att.file_type|upper }}
+                &middot;
+                {% if att.file_size >= 1048576 %}
+                  {{ '%.1f'|format(att.file_size / 1048576) }} MB
+                {% else %}
+                  {{ (att.file_size // 1024) }} KB
+                {% endif %}
+              </p>
+            </div>
+            <a href="{{ att.file_path }}" download
+               class="shrink-0 text-xs font-medium text-brand-600 hover:text-brand-800 transition-colors">
+              Download
+            </a>
+          </li>
+          {% endfor %}
+        </ul>
+      </section>
+      {% endif %}
+
+    </article>
+
+    <!-- Book table of contents sidebar -->
+    {% if content.content_type == 'book' and content.chapters %}
+    <aside class="mt-8 lg:mt-0">
+      <div class="sticky top-24 bg-white rounded-2xl border border-stone-200 shadow-sm p-5">
+        <h2 class="text-sm font-semibold text-stone-700 uppercase tracking-wider mb-4">Table of Contents</h2>
+        <nav>
+          <ol class="space-y-1">
+            {% for ch in content.chapters %}
+            <li>
+              <a href="{{ url_for('content.view', content_id=ch.id) }}"
+                 class="flex items-center gap-2 text-sm text-stone-600 hover:text-brand-700 py-1.5 px-2 rounded-lg hover:bg-brand-50 transition-colors">
+                <span class="text-xs text-stone-400 font-mono w-5 shrink-0">{{ loop.index }}</span>
+                <span class="truncate">{{ ch.title }}</span>
+              </a>
+            </li>
+            {% endfor %}
+          </ol>
+        </nav>
+      </div>
+    </aside>
+    {% endif %}
+
+  </div><!-- end grid -->
+
+</div>
+
+<!-- Heartbeat JS -->
+<script>
+(function() {
+  var contentId = {{ content.id }};
+  function sendHeartbeat() {
+    if (document.visibilityState === 'visible') {
+      var xhr = new XMLHttpRequest();
+      xhr.open('POST', '/analytics/heartbeat');
+      xhr.setRequestHeader('Content-Type', 'application/x-www-form-urlencoded');
+      xhr.setRequestHeader('X-CSRFToken', '{{ csrf_token() }}');
+      xhr.send('content_id=' + contentId + '&page=' + window.location.pathname);
+    }
+  }
+  setInterval(sendHeartbeat, 15000);
+})();
+</script>
+{% endblock %}

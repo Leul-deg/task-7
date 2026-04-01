@@ -1,0 +1,40 @@
+{% extends "base.html" %}
+{% block title %}Version History — {{ content.title }} — StudioOps{% endblock %}
+
+{% block content %}
+<div class="max-w-3xl mx-auto space-y-6">
+
+  <!-- Header -->
+  <div class="flex items-center gap-4">
+    <a href="{{ url_for('content.editor_edit', content_id=content.id) }}"
+       class="text-stone-400 hover:text-brand-700 transition-colors">
+      <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+        <path stroke-linecap="round" stroke-linejoin="round" d="M10.5 19.5L3 12m0 0l7.5-7.5M3 12h18" />
+      </svg>
+    </a>
+    <div>
+      <h1 class="text-2xl font-bold text-stone-800">Version History</h1>
+      <p class="text-sm text-stone-500 mt-0.5">{{ content.title }}</p>
+    </div>
+  </div>
+
+  {% if versions %}
+  <!-- Timeline -->
+  <div class="relative">
+    <!-- Vertical line -->
+    <div class="absolute left-5 top-0 bottom-0 w-px bg-stone-200"></div>
+
+    <div class="space-y-0">
+      {% for v in versions %}
+        {% include "partials/content/version_entry.html" %}
+      {% endfor %}
+    </div>
+  </div>
+  {% else %}
+  <div class="bg-white rounded-2xl border border-stone-200 shadow-sm p-10 text-center">
+    <p class="text-stone-400">No version history available.</p>
+  </div>
+  {% endif %}
+
+</div>
+{% endblock %}

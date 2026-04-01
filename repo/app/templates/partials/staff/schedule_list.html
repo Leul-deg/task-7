@@ -1,0 +1,91 @@
+{% set day_names = {
+  0: "Monday", 1: "Tuesday", 2: "Wednesday",
+  3: "Thursday", 4: "Friday", 5: "Saturday", 6: "Sunday"
+} %}
+
+{% set has_any = namespace(value=false) %}
+{% for date_key, day_sessions in days.items() %}
+  {% if day_sessions %}{% set has_any.value = true %}{% endif %}
+{% endfor %}
+
+{% if not has_any.value %}
+<div class="text-center py-16 bg-white rounded-xl border border-slate-100 shadow-sm">
+  <svg class="mx-auto w-12 h-12 text-slate-200 mb-3" fill="none" stroke="currentColor" stroke-width="1.5" viewBox="0 0 24 24">
+    <path stroke-linecap="round" stroke-linejoin="round"
+      d="M6.75 3v2.25M17.25 3v2.25M3 18.75V7.5a2.25 2.25 0 012.25-2.25h13.5A2.25 2.25 0 0121 7.5v11.25m-18 0A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75m-18 0v-7.5A2.25 2.25 0 015.25 9h13.5A2.25 2.25 0 0121 11.25v7.5"/>
+  </svg>
+  <p class="text-lg text-slate-500 font-medium">No sessions scheduled this week.</p>
+</div>
+{% else %}
+<div class="space-y-6">
+  {% for date_key, day_sessions in days.items() %}
+  {% set loop_day_index = loop.index0 %}
+  <div>
+    <!-- Day header -->
+    <div class="flex items-center gap-3 mb-3">
+      <h2 class="text-sm font-semibold text-slate-500 uppercase tracking-wide">
+        {{ day_names[loop_day_index] }}
+      </h2>
+      <span class="text-sm text-slate-400">{{ date_key }}</span>
+      {% if day_sessions %}
+      <span class="text-xs font-medium text-teal-700 bg-teal-50 border border-teal-100 px-2 py-0.5 rounded-full">
+        {{ day_sessions|length }} session{{ 's' if day_sessions|length != 1 else '' }}
+      </span>
+      {% endif %}
+      <div class="flex-1 border-t border-slate-100"></div>
+    </div>
+
+    {% if day_sessions %}
+    <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+      {% for s in day_sessions %}
+      <div class="bg-white rounded-xl border border-slate-100 shadow-sm p-4 hover:shadow-md transition-shadow
+        {% if s.is_tight_schedule %}ring-1 ring-amber-300{% endif %}">
+
+        <!-- Time badge + warnings -->
+        <div class="flex items-start justify-between gap-2 mb-2">
+          <span class="text-xs font-medium text-teal-700 bg-teal-50 border border-teal-100 px-2 py-0.5 rounded-full whitespace-nowrap">
+            {{ s.start_time }} – {{ s.end_time }}
+          </span>
+          <div class="flex flex-wrap gap-1 justify-end">
+            {% if s.has_resource_warning %}
+            <span class="text-xs font-medium text-orange-700 bg-orange-50 border border-orange-200 px-1.5 py-0.5 rounded-full">
+              Conflict
+            </span>
+            {% endif %}
+            {% if s.is_tight_schedule %}
+            <span class="text-xs font-medium text-amber-700 bg-amber-50 border border-amber-200 px-1.5 py-0.5 rounded-full">
+              Tight Schedule
+            </span>
+            {% endif %}
+          </div>
+        </div>
+
+        <!-- Title -->
+        <h3 class="font-semibold text-slate-800 text-sm leading-snug mb-1">{{ s.title }}</h3>
+
+        <!-- Meta -->
+        <p class="text-xs text-slate-500 mb-3">
+          {{ s.room_name }} ·
+          <span class="{% if s.booked_count >= s.capacity %}text-red-500 font-medium{% else %}text-slate-500{% endif %}">
+            {{ s.booked_count }}/{{ s.capacity }}
+          </span>
+        </p>
+
+        <!-- Actions -->
+        <a href="/staff/session/{{ s.session_id }}/roster"
+           class="w-full inline-flex items-center justify-center gap-1.5 py-1.5 px-3 text-xs font-medium text-teal-700 bg-teal-50 border border-teal-200 rounded-lg hover:bg-teal-100 transition-colors">
+          <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M15 19.128a9.38 9.38 0 002.625.372 9.337 9.337 0 004.121-.952 4.125 4.125 0 00-7.533-2.493M15 19.128v-.003c0-1.113-.285-2.16-.786-3.07M15 19.128v.106A12.318 12.318 0 018.624 21c-2.331 0-4.512-.645-6.374-1.766l-.001-.109a6.375 6.375 0 0111.964-3.07M12 6.375a3.375 3.375 0 11-6.75 0 3.375 3.375 0 016.75 0zm8.25 2.25a2.625 2.625 0 11-5.25 0 2.625 2.625 0 015.25 0z"/>
+          </svg>
+          View Roster
+        </a>
+      </div>
+      {% endfor %}
+    </div>
+    {% else %}
+    <p class="text-sm text-slate-400 pl-1">No sessions.</p>
+    {% endif %}
+  </div>
+  {% endfor %}
+</div>
+{% endif %}

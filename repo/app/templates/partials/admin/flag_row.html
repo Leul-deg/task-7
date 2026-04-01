@@ -1,0 +1,48 @@
+<tr id="flag-row-{{ flag.name }}" class="hover:bg-stone-50 transition-colors">
+  <td class="px-4 py-3 font-mono text-sm font-medium text-stone-800">{{ flag.name }}</td>
+  <td class="px-4 py-3 text-stone-500 text-sm truncate max-w-[200px]">
+    {{ flag.description or '—' }}
+  </td>
+  <td class="px-4 py-3">
+    <span class="inline-block px-2 py-0.5 rounded-full text-xs font-semibold
+      {% if flag.is_enabled %}bg-emerald-100 text-emerald-700{% else %}bg-stone-100 text-stone-500{% endif %}">
+      {% if flag.is_enabled %}On{% else %}Off{% endif %}
+    </span>
+  </td>
+  <td class="px-4 py-3">
+    <!-- Inline canary update form -->
+    <form hx-post="{{ url_for('admin.update_canary', name=flag.name) }}"
+          hx-target="#flag-row-{{ flag.name }}"
+          hx-swap="outerHTML"
+          class="flex items-center gap-1">
+      <input type="hidden" name="csrf_token" value="{{ csrf_token() }}" />
+      <input type="text" name="canary_ids"
+             value="{{ flag.canary_staff_ids | join(',') }}"
+             placeholder="1,2,3"
+             class="text-xs border border-stone-200 rounded px-2 py-1 w-28 focus:outline-none focus:ring-1 focus:ring-brand-400" />
+      <button type="submit" class="text-xs text-brand-600 hover:text-brand-800 transition-colors">Save</button>
+    </form>
+  </td>
+  <td class="px-4 py-3 text-stone-400 text-xs whitespace-nowrap">{{ flag.updated_at or flag.created_at }}</td>
+  <td class="px-4 py-3 text-right">
+    <div class="flex items-center justify-end gap-2">
+      <button
+        hx-post="{{ url_for('admin.toggle_flag', name=flag.name) }}"
+        hx-target="#flag-row-{{ flag.name }}"
+        hx-swap="outerHTML"
+        hx-headers='{"X-CSRFToken": "{{ csrf_token() }}"}'
+        class="text-xs text-stone-500 hover:text-brand-700 transition-colors">
+        {% if flag.is_enabled %}Disable{% else %}Enable{% endif %}
+      </button>
+      <button
+        hx-delete="{{ url_for('admin.delete_flag', name=flag.name) }}"
+        hx-target="#flag-row-{{ flag.name }}"
+        hx-swap="outerHTML"
+        hx-confirm="Delete flag '{{ flag.name }}'?"
+        hx-headers='{"X-CSRFToken": "{{ csrf_token() }}"}'
+        class="text-xs text-red-500 hover:text-red-700 transition-colors">
+        Delete
+      </button>
+    </div>
+  </td>
+</tr>

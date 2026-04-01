@@ -1,0 +1,39 @@
+<div class="bg-amber-50 border border-amber-200 rounded-xl p-4 space-y-3">
+  <h3 class="text-sm font-semibold text-amber-800">File a Dispute</h3>
+  <div id="appeal-result-{{ review_id_val }}"></div>
+  <form
+    hx-post="{{ url_for('reviews.file_appeal', review_id=review_id_val) }}"
+    hx-target="#appeal-result-{{ review_id_val }}"
+    hx-swap="innerHTML"
+    class="space-y-3"
+  >
+    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}" />
+    <div>
+      <textarea name="reason" rows="3" minlength="20" maxlength="2000" required
+                placeholder="Explain why you're disputing this review (min 20 characters)…"
+                class="w-full text-sm rounded-xl border border-amber-200 bg-white px-3 py-2 focus:outline-none focus:ring-2 focus:ring-amber-400 resize-none"
+                oninput="updateAppealCount(this, 'appeal-counter-{{ review_id_val }}')"></textarea>
+      <p class="text-xs text-amber-600 mt-0.5">
+        <span id="appeal-counter-{{ review_id_val }}">0</span> / 2000 (minimum 20)
+      </p>
+    </div>
+    <div class="flex justify-end gap-2">
+      <button type="button"
+              onclick="document.getElementById('appeal-form-{{ review_id_val }}').classList.add('hidden')"
+              class="text-xs text-stone-500 hover:text-stone-700 px-3 py-1.5">
+        Cancel
+      </button>
+      <button type="submit"
+              class="text-xs font-medium bg-amber-600 text-white px-4 py-1.5 rounded-lg hover:bg-amber-700 transition-colors">
+        Submit Dispute
+      </button>
+    </div>
+  </form>
+</div>
+
+<script>
+function updateAppealCount(el, counterId) {
+  var el2 = document.getElementById(counterId);
+  if (el2) el2.textContent = el.value.length;
+}
+</script>

@@ -1,0 +1,311 @@
+<!DOCTYPE html>
+<html lang="en" class="h-full bg-stone-50">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>{% block title %}StudioOps{% endblock %}</title>
+
+  <!-- Tailwind CSS (vendored Play CDN — no external network required) -->
+  <script src="{{ url_for('static', filename='vendor/tailwind-cdn.js') }}"></script>
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          colors: {
+            brand: {
+              50:  '#f5f3ff',
+              100: '#ede9fe',
+              400: '#a78bfa',
+              500: '#8b5cf6',
+              600: '#7c3aed',
+              700: '#6d28d9',
+            }
+          }
+        }
+      }
+    }
+  </script>
+
+  <!-- HTMX 2.0.4 (vendored — no external network required) -->
+  <script src="{{ url_for('static', filename='vendor/htmx-2.0.4.min.js') }}"></script>
+
+  <!-- CSRF header for all HTMX requests -->
+  <meta name="csrf-token" content="{{ csrf_token() }}" />
+  <script>
+    document.addEventListener('htmx:configRequest', (e) => {
+      e.detail.headers['X-CSRFToken'] = document.querySelector('meta[name="csrf-token"]').content;
+    });
+    // Allow HTMX to swap content on 422 (validation errors) and 4xx responses
+    document.addEventListener('htmx:beforeSwap', (e) => {
+      if (e.detail.xhr.status === 422 || e.detail.xhr.status === 400) {
+        e.detail.shouldSwap = true;
+        e.detail.isError = false;
+      }
+    });
+  </script>
+
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/custom.css') }}" />
+  {% block head %}{% endblock %}
+</head>
+
+<body class="h-full flex flex-col" hx-boost="false">
+
+  <!-- ── Navigation ─────────────────────────────────────────────── -->
+  <nav class="bg-white border-b border-stone-200 shadow-sm sticky top-0 z-30">
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+      <div class="flex justify-between h-16 items-center">
+
+        <!-- Brand -->
+        <a href="/" class="flex items-center gap-2 text-brand-700 font-semibold text-lg tracking-tight shrink-0">
+          <svg class="w-6 h-6" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round"
+              d="M12 3v1m0 16v1M4.22 4.22l.707.707m12.728 12.728.707.707M3 12h1m16 0h1M4.927 19.073l.707-.707M18.364 5.636l.707-.707" />
+          </svg>
+          StudioOps
+        </a>
+
+        {% if current_user.is_authenticated %}
+
+        <!-- Primary nav links (desktop) -->
+        <div class="hidden md:flex items-center gap-1">
+          <a href="{{ url_for('booking.schedule') }}"
+             class="nav-link {% if request.path.startswith('/schedule') %}nav-link-active{% endif %}">
+            Schedule
+          </a>
+          <a href="{{ url_for('booking.my_bookings') }}"
+             class="nav-link {% if request.path.startswith('/booking') %}nav-link-active{% endif %}">
+            My Bookings
+          </a>
+          <a href="{{ url_for('reviews.index') }}"
+             class="nav-link {% if request.path.startswith('/reviews') %}nav-link-active{% endif %}">
+            Reviews
+          </a>
+          {% if current_user.role in ['staff', 'admin'] %}
+          <a href="{{ url_for('staff.index') }}"
+             class="nav-link {% if request.path.startswith('/staff') %}nav-link-active{% endif %}">
+            Staff
+          </a>
+          <a href="{{ url_for('admin.dashboard') }}"
+             class="nav-link {% if request.path.startswith('/analytics') %}nav-link-active{% endif %}">
+            Analytics
+          </a>
+          {% endif %}
+          {% if current_user.role in ['editor', 'admin'] %}
+          <a href="{{ url_for('content.browse') }}"
+             class="nav-link {% if request.path.startswith('/content') %}nav-link-active{% endif %}">
+            Content
+          </a>
+          {% endif %}
+          {% if current_user.role == 'admin' %}
+          <a href="{{ url_for('admin.index') }}"
+             class="nav-link {% if request.path.startswith('/admin') %}nav-link-active{% endif %}">
+            Admin
+          </a>
+          {% endif %}
+        </div>
+
+        <!-- Right: user dropdown + mobile toggle -->
+        <div class="flex items-center gap-2">
+
+          <!-- User dropdown (desktop) -->
+          <div class="relative hidden md:block" id="user-menu-wrapper">
+            <button
+              type="button"
+              id="user-menu-btn"
+              onclick="document.getElementById('user-dropdown').classList.toggle('hidden')"
+              class="flex items-center gap-2 text-sm text-stone-700 hover:text-brand-700 transition-colors focus:outline-none"
+              aria-haspopup="true" aria-expanded="false"
+            >
+              <span class="inline-flex items-center justify-center w-8 h-8 rounded-full bg-brand-100 text-brand-700 font-semibold text-xs">
+                {{ current_user.username[0]|upper }}
+              </span>
+              <span class="hidden sm:block font-medium">{{ current_user.username }}</span>
+              <svg class="w-4 h-4 text-stone-400" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" d="M19 9l-7 7-7-7" />
+              </svg>
+            </button>
+
+            <!-- Dropdown menu -->
+            <div id="user-dropdown"
+                 class="hidden absolute right-0 mt-2 w-52 bg-white rounded-xl shadow-lg border border-stone-100 py-1 z-50"
+                 onclick="this.classList.add('hidden')">
+              <div class="px-4 py-2 border-b border-stone-100">
+                <p class="text-xs font-medium text-stone-800">{{ current_user.username }}</p>
+                <p class="text-xs text-stone-400 truncate">{{ current_user.email }}</p>
+                <span class="inline-block mt-1 text-xs bg-brand-100 text-brand-700 px-2 py-0.5 rounded-full capitalize">
+                  {{ current_user.role }}
+                </span>
+              </div>
+              {% if current_user.role == 'customer' %}
+              <a href="{{ url_for('staff.credit_dashboard', user_id=current_user.id) if current_user.role in ['staff','admin'] else '#' }}"
+                 class="block px-4 py-2 text-sm text-stone-600 hover:bg-stone-50 transition-colors">
+                Credit score: <strong>{{ current_user.credit_score }}</strong>
+              </a>
+              {% endif %}
+              <div class="py-1 border-t border-stone-100">
+                <form action="{{ url_for('auth.logout') }}" method="post">
+                  <input type="hidden" name="csrf_token" value="{{ csrf_token() }}" />
+                  <button type="submit"
+                    class="w-full text-left px-4 py-2 text-sm text-red-600 hover:bg-red-50 transition-colors">
+                    Log out
+                  </button>
+                </form>
+              </div>
+            </div>
+          </div>
+
+          <!-- Mobile hamburger -->
+          <button
+            type="button"
+            id="mobile-menu-btn"
+            aria-label="Open navigation"
+            onclick="document.getElementById('mobile-menu').classList.toggle('hidden')"
+            class="md:hidden inline-flex items-center justify-center p-2 rounded-md text-stone-500 hover:text-brand-700 hover:bg-stone-100 transition-colors focus:outline-none">
+            <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" d="M4 6h16M4 12h16M4 18h16" />
+            </svg>
+          </button>
+
+        </div><!-- /right -->
+
+        {% else %}
+        <!-- Unauthenticated -->
+        <div class="flex items-center gap-4">
+          <a href="{{ url_for('auth.login') }}"
+             class="text-sm font-medium text-stone-600 hover:text-brand-700">Log in</a>
+          <a href="{{ url_for('auth.register') }}"
+             class="text-sm font-medium bg-brand-600 text-white px-4 py-2 rounded-lg hover:bg-brand-700 transition-colors">
+            Sign up
+          </a>
+        </div>
+        {% endif %}
+
+      </div>
+    </div>
+
+    <!-- ── Mobile menu ──────────────────────────────────────────── -->
+    {% if current_user.is_authenticated %}
+    <div id="mobile-menu" class="hidden md:hidden border-t border-stone-100 bg-white px-4 pb-3 pt-2 space-y-1">
+      <a href="{{ url_for('booking.schedule') }}" class="mobile-nav-link">Schedule</a>
+      <a href="{{ url_for('booking.my_bookings') }}" class="mobile-nav-link">My Bookings</a>
+      <a href="{{ url_for('reviews.index') }}" class="mobile-nav-link">Reviews</a>
+      {% if current_user.role in ['staff', 'admin'] %}
+      <a href="{{ url_for('staff.index') }}" class="mobile-nav-link">Staff</a>
+      <a href="{{ url_for('admin.dashboard') }}" class="mobile-nav-link">Analytics</a>
+      {% endif %}
+      {% if current_user.role in ['editor', 'admin'] %}
+      <a href="{{ url_for('content.browse') }}" class="mobile-nav-link">Content</a>
+      {% endif %}
+      {% if current_user.role == 'admin' %}
+      <a href="{{ url_for('admin.index') }}" class="mobile-nav-link">Admin</a>
+      {% endif %}
+      <div class="border-t border-stone-100 pt-2 mt-2">
+        <p class="text-xs text-stone-400 px-3 mb-1">{{ current_user.username }} · {{ current_user.role }}</p>
+        <form action="{{ url_for('auth.logout') }}" method="post">
+          <input type="hidden" name="csrf_token" value="{{ csrf_token() }}" />
+          <button type="submit" class="w-full text-left px-3 py-2 text-sm text-red-600 hover:bg-red-50 rounded-lg transition-colors">
+            Log out
+          </button>
+        </form>
+      </div>
+    </div>
+    {% endif %}
+
+  </nav>
+
+  <!-- Close desktop dropdown on outside click -->
+  <script>
+    document.addEventListener('click', function(e) {
+      const wrapper = document.getElementById('user-menu-wrapper');
+      const dropdown = document.getElementById('user-dropdown');
+      if (wrapper && dropdown && !wrapper.contains(e.target)) {
+        dropdown.classList.add('hidden');
+      }
+    });
+  </script>
+
+  <!-- ── Global HTMX loading bar ─────────────────────────────────── -->
+  <div id="htmx-progress"
+       class="fixed top-0 left-0 h-0.5 bg-brand-500 z-50 transition-all duration-300"
+       style="width:0;opacity:0"></div>
+  <script>
+    (function () {
+      var bar = document.getElementById('htmx-progress');
+      document.body.addEventListener('htmx:beforeRequest', function () {
+        bar.style.width = '0'; bar.style.opacity = '1';
+        bar.style.width = '40%';
+      });
+      document.body.addEventListener('htmx:afterRequest', function () {
+        bar.style.width = '100%';
+        setTimeout(function () { bar.style.opacity = '0'; bar.style.width = '0'; }, 300);
+      });
+    })();
+  </script>
+
+  <!-- ── Flash messages ──────────────────────────────────────────── -->
+  <div id="flash-container" class="max-w-7xl mx-auto w-full px-4 sm:px-6 lg:px-8 pt-4">
+    {% with messages = get_flashed_messages(with_categories=true) %}
+      {% if messages %}
+        {% for category, message in messages %}
+          {% include "partials/flash.html" %}
+        {% endfor %}
+      {% endif %}
+    {% endwith %}
+  </div>
+
+  <!-- ── Main content ────────────────────────────────────────────── -->
+  <main class="flex-1 max-w-7xl mx-auto w-full px-4 sm:px-6 lg:px-8 py-8">
+    {% block content %}{% endblock %}
+  </main>
+
+  <footer class="border-t border-stone-200 mt-auto py-6 text-center text-xs text-stone-400">
+    &copy; {{ now().year }} StudioOps. All rights reserved.
+  </footer>
+
+  <!-- ── Tailwind utility classes for nav (applied via @layer in CSS) ── -->
+  <style>
+    .nav-link {
+      @apply text-sm font-medium text-stone-600 hover:text-brand-700 px-3 py-1.5 rounded-lg hover:bg-brand-50 transition-colors;
+    }
+    .nav-link-active {
+      @apply text-brand-700 bg-brand-50;
+    }
+    .mobile-nav-link {
+      @apply block px-3 py-2 text-sm font-medium text-stone-600 hover:text-brand-700 hover:bg-stone-50 rounded-lg transition-colors;
+    }
+  </style>
+
+  <!-- ── Client-side error logging ──────────────────────────────── -->
+  <script>
+  (function () {
+    var _endpoint = '/analytics/client-error';
+
+    function _send(message, stack) {
+      try {
+        var body = 'message=' + encodeURIComponent((message || '').slice(0, 500))
+                 + '&stack='   + encodeURIComponent((stack   || '').slice(0, 1000))
+                 + '&page='    + encodeURIComponent(window.location.pathname);
+        var xhr = new XMLHttpRequest();
+        xhr.open('POST', _endpoint, true);
+        xhr.setRequestHeader('Content-Type', 'application/x-www-form-urlencoded');
+        xhr.send(body);
+      } catch (e) { /* never let logging itself crash the page */ }
+    }
+
+    window.addEventListener('error', function (e) {
+      _send(e.message, e.error && e.error.stack ? e.error.stack : '');
+    });
+    window.addEventListener('unhandledrejection', function (e) {
+      var reason = e.reason;
+      var msg = reason instanceof Error ? reason.message : String(reason);
+      var stack = reason instanceof Error ? (reason.stack || '') : '';
+      _send('Unhandled rejection: ' + msg, stack);
+    });
+    document.addEventListener('htmx:responseError', function (e) {
+      _send('HTMX error: ' + e.detail.xhr.status + ' on ' + (e.detail.pathInfo && e.detail.pathInfo.requestPath || 'unknown'), '');
+    });
+  })();
+  </script>
+
+</body>
+</html>

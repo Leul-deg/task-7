@@ -1,0 +1,99 @@
+<div class="bg-white rounded-xl shadow-sm border border-slate-100 p-5 hover:shadow-md transition-shadow"
+     id="booking-card-{{ booking.reservation_id }}">
+
+  <!-- Header -->
+  <div class="flex justify-between items-start mb-3 gap-2">
+    <h3 class="text-lg font-semibold text-slate-800 leading-tight">
+      <a href="/schedule/sessions/{{ booking.session_id }}"
+         class="hover:text-teal-600 transition-colors">
+        {{ booking.session_title }}
+      </a>
+    </h3>
+    <span class="shrink-0 text-xs font-medium px-2.5 py-1 rounded-full whitespace-nowrap
+      {% if booking.status == 'confirmed' %}text-emerald-700 bg-emerald-50 border border-emerald-100
+      {% elif booking.status == 'cancelled' %}text-slate-500 bg-slate-50 border border-slate-200
+      {% elif booking.status == 'attended' %}text-teal-700 bg-teal-50 border border-teal-100
+      {% else %}text-amber-700 bg-amber-50 border border-amber-100{% endif %}">
+      {{ booking.status | capitalize }}
+    </span>
+  </div>
+
+  <!-- Details -->
+  <div class="space-y-0.5 text-sm text-slate-500 mb-4">
+    <p class="flex items-center gap-1.5">
+      <svg class="w-3.5 h-3.5 text-slate-400 shrink-0" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+        <path stroke-linecap="round" stroke-linejoin="round" d="M6.75 3v2.25M17.25 3v2.25M3 18.75V7.5a2.25 2.25 0 012.25-2.25h13.5A2.25 2.25 0 0121 7.5v11.25m-18 0A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75m-18 0v-7.5A2.25 2.25 0 015.25 9h13.5A2.25 2.25 0 0121 11.25v7.5"/>
+      </svg>
+      {{ booking.session_date }}
+    </p>
+    <p class="flex items-center gap-1.5">
+      <svg class="w-3.5 h-3.5 text-slate-400 shrink-0" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+        <path stroke-linecap="round" stroke-linejoin="round" d="M12 6v6h4.5m4.5 0a9 9 0 11-18 0 9 9 0 0118 0z"/>
+      </svg>
+      {{ booking.session_start }} – {{ booking.session_end }}
+    </p>
+    <p class="flex items-center gap-1.5">
+      <svg class="w-3.5 h-3.5 text-slate-400 shrink-0" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+        <path stroke-linecap="round" stroke-linejoin="round" d="M15.75 6a3.75 3.75 0 11-7.5 0 3.75 3.75 0 017.5 0zM4.501 20.118a7.5 7.5 0 0114.998 0A17.933 17.933 0 0112 21.75c-2.676 0-5.216-.584-7.499-1.632z"/>
+      </svg>
+      {{ booking.instructor_name }}
+    </p>
+    <p class="flex items-center gap-1.5">
+      <svg class="w-3.5 h-3.5 text-slate-400 shrink-0" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+        <path stroke-linecap="round" stroke-linejoin="round" d="M2.25 12l8.954-8.955c.44-.439 1.152-.439 1.591 0L21.75 12M4.5 9.75v10.125c0 .621.504 1.125 1.125 1.125H9.75v-4.875c0-.621.504-1.125 1.125-1.125h2.25c.621 0 1.125.504 1.125 1.125V21h4.125c.621 0 1.125-.504 1.125-1.125V9.75M8.25 21h8.25"/>
+      </svg>
+      {{ booking.room_name }}
+    </p>
+  </div>
+
+  {% if booking.breach_flag %}
+  <div class="flex items-center gap-1.5 text-xs text-amber-600 bg-amber-50 border border-amber-100 rounded-lg px-3 py-2 mb-4">
+    <svg class="w-3.5 h-3.5 shrink-0" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+      <path stroke-linecap="round" stroke-linejoin="round" d="M12 9v3.75m-9.303 3.376c-.866 1.5.217 3.374 1.948 3.374h14.71c1.73 0 2.813-1.874 1.948-3.374L13.949 3.378c-.866-1.5-3.032-1.5-3.898 0L2.697 16.126zM12 15.75h.007v.008H12v-.008z"/>
+    </svg>
+    Late cancellation — credit point deducted
+  </div>
+  {% endif %}
+
+  <!-- Actions -->
+  <div id="booking-actions-{{ booking.reservation_id }}" class="flex flex-wrap gap-2">
+    {% if booking.can_cancel %}
+      <button
+        hx-post="/booking/{{ booking.reservation_id }}/cancel"
+        hx-target="#booking-card-{{ booking.reservation_id }}"
+        hx-swap="outerHTML"
+        hx-confirm="Cancel this booking?"
+        class="flex-1 py-2 px-3 bg-red-50 hover:bg-red-100 text-red-600 border border-red-200 rounded-lg text-sm font-medium transition-colors focus:outline-none focus:ring-2 focus:ring-red-400 focus:ring-offset-1">
+        Cancel
+      </button>
+    {% endif %}
+    {% if booking.can_reschedule %}
+      <button
+        hx-get="/booking/available-sessions?reservation_id={{ booking.reservation_id }}"
+        hx-target="#reschedule-modal-{{ booking.reservation_id }}"
+        hx-swap="innerHTML"
+        hx-on::after-swap="document.getElementById('reschedule-dialog-{{ booking.reservation_id }}').showModal()"
+        class="flex-1 py-2 px-3 bg-teal-50 hover:bg-teal-100 text-teal-700 border border-teal-200 rounded-lg text-sm font-medium transition-colors focus:outline-none focus:ring-2 focus:ring-teal-400 focus:ring-offset-1">
+        Reschedule
+      </button>
+    {% endif %}
+    {% if booking.can_review %}
+      <a href="/reviews/new?reservation_id={{ booking.reservation_id }}"
+         class="flex-1 text-center py-2 px-3 bg-slate-50 hover:bg-slate-100 text-slate-600 border border-slate-200 rounded-lg text-sm font-medium transition-colors">
+        Leave Review
+      </a>
+    {% endif %}
+    {% if booking.has_review %}
+      <span class="flex-1 text-center py-2 px-3 text-xs text-emerald-600 bg-emerald-50 border border-emerald-100 rounded-lg font-medium">
+        Reviewed
+      </span>
+    {% endif %}
+  </div>
+
+  <!-- Reschedule dialog (populated by HTMX) -->
+  <dialog id="reschedule-dialog-{{ booking.reservation_id }}"
+          class="rounded-2xl shadow-xl border border-slate-200 p-0 w-full max-w-lg backdrop:bg-slate-900/40"
+          hx-on:closeRescheduleModal="this.close()">
+    <div id="reschedule-modal-{{ booking.reservation_id }}"></div>
+  </dialog>
+</div>

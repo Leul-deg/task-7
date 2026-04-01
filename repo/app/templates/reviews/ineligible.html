@@ -1,0 +1,18 @@
+{% extends "base.html" %}
+{% block title %}Cannot Review — StudioOps{% endblock %}
+
+{% block content %}
+<div class="max-w-md mx-auto mt-16 text-center space-y-6">
+  <div class="w-16 h-16 bg-amber-100 rounded-full flex items-center justify-center mx-auto">
+    <span class="text-3xl text-amber-400">★</span>
+  </div>
+  <div class="space-y-2">
+    <h1 class="text-2xl font-bold text-stone-800">Review Not Available</h1>
+    <p class="text-stone-500 text-sm">{{ reason }}</p>
+  </div>
+  <a href="{{ url_for('booking.my_bookings') }}"
+     class="inline-block mt-4 px-5 py-2.5 bg-brand-600 text-white text-sm font-medium rounded-xl hover:bg-brand-700 transition-colors">
+    ← Back to My Bookings
+  </a>
+</div>
+{% endblock %}

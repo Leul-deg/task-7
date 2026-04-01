@@ -1,0 +1,14 @@
+<div class="bg-red-50 border border-red-200 rounded-xl p-4 space-y-2">
+  <div class="flex items-center gap-2">
+    <span class="text-red-500 text-lg">✗</span>
+    <p class="text-sm font-semibold text-red-800">Could not submit review</p>
+  </div>
+  <p class="text-xs text-red-600">{{ reason }}</p>
+  {% if violations %}
+  <ul class="text-xs text-red-500 list-disc list-inside space-y-0.5 mt-1">
+    {% for v in violations %}
+    <li>{{ v }}</li>
+    {% endfor %}
+  </ul>
+  {% endif %}
+</div>

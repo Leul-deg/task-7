@@ -1,0 +1,109 @@
+{% set role_styles = {
+  'customer': 'bg-blue-50 text-blue-700',
+  'staff': 'bg-violet-50 text-violet-700',
+  'admin': 'bg-rose-50 text-rose-700',
+} %}
+{% set status_styles = {
+  'active': '',
+  'disputed': 'border-amber-200 bg-amber-50',
+  'removed': 'border-red-200 bg-red-50 opacity-60',
+} %}
+
+<div class="bg-white rounded-2xl border {{ status_styles.get(review.status, '') }} shadow-sm p-5 space-y-3"
+     id="review-card-{{ review.id }}">
+
+  <!-- Header row: stars + meta -->
+  <div class="flex items-start justify-between gap-3 flex-wrap">
+    <!-- Stars -->
+    <div class="flex gap-0.5">
+      {% for i in range(1, 6) %}
+      <span class="text-lg {% if review.rating >= i %}text-amber-400{% else %}text-slate-200{% endif %}">★</span>
+      {% endfor %}
+    </div>
+
+    <!-- Reviewer + date -->
+    <div class="flex items-center gap-2 text-xs text-stone-400">
+      <span class="font-medium text-stone-600">{{ review.author_name }}</span>
+      <span class="px-2 py-0.5 rounded-full text-xs font-medium capitalize {{ role_styles.get(review.reviewer_role, 'bg-stone-100 text-stone-500') }}">
+        {{ review.reviewer_role | title }}
+      </span>
+      <span>{{ review.created_at }}</span>
+    </div>
+  </div>
+
+  <!-- Tags -->
+  {% if review.tags %}
+  <div class="flex flex-wrap gap-1.5">
+    {% for tag in review.tags %}
+    <span class="text-xs px-2 py-0.5 rounded-full bg-teal-50 text-teal-700 border border-teal-100">{{ tag }}</span>
+    {% endfor %}
+  </div>
+  {% endif %}
+
+  <!-- Review text -->
+  {% if review.text %}
+  <p class="text-sm text-stone-700 leading-relaxed">{{ review.text }}</p>
+  {% endif %}
+
+  <!-- Image thumbnails -->
+  {% if review.images %}
+  <div class="flex flex-wrap gap-2 mt-1">
+    {% for img in review.images %}
+    <img src="{{ img.file_path }}" alt="Review photo"
+         class="w-20 h-20 object-cover rounded-xl border border-stone-200" />
+    {% endfor %}
+  </div>
+  {% endif %}
+
+  <!-- Action buttons -->
+  {% if review.status != 'removed' %}
+  <div class="flex items-center gap-2 pt-1 border-t border-stone-50 flex-wrap">
+
+    {% if review.is_own %}
+    <!-- Edit (opens inline edit form) -->
+    <button
+      hx-get="{{ url_for('reviews.review_form', reservation_id=review.reservation_id) }}"
+      class="text-xs font-medium text-stone-500 hover:text-brand-700 border border-stone-200 hover:border-brand-300 px-2.5 py-1 rounded-lg transition-colors">
+      Edit
+    </button>
+    <!-- Delete -->
+    <button
+      hx-delete="{{ url_for('reviews.delete_review', review_id=review.id) }}"
+      hx-target="#review-card-{{ review.id }}"
+      hx-swap="outerHTML"
+      hx-confirm="Delete this review? This cannot be undone."
+      class="text-xs font-medium text-red-500 hover:text-red-700 border border-transparent hover:border-red-200 hover:bg-red-50 px-2.5 py-1 rounded-lg transition-colors">
+      Delete
+    </button>
+
+    {% else %}
+    <!-- Dispute -->
+    {% if review.status == 'active' %}
+    <button
+      hx-get="{{ url_for('reviews.session_reviews', session_id=session_id if session_id is defined else 0) }}#appeal-{{ review.id }}"
+      onclick="document.getElementById('appeal-form-{{ review.id }}').classList.toggle('hidden')"
+      class="text-xs font-medium text-amber-600 hover:text-amber-800 border border-amber-200 hover:bg-amber-50 px-2.5 py-1 rounded-lg transition-colors">
+      Dispute
+    </button>
+
+    <!-- Inline appeal form -->
+    <div id="appeal-form-{{ review.id }}" class="hidden w-full mt-2">
+      {% set review_id_val = review.id %}
+      {% include "partials/reviews/appeal_form.html" %}
+    </div>
+    {% endif %}
+
+    {% if review.status == 'disputed' %}
+    <span class="text-xs text-amber-600 font-medium px-2 py-1">Under dispute</span>
+    {% endif %}
+
+    {% endif %}
+
+  </div>
+  {% endif %}
+
+  {% if review.status == 'removed' %}
+  <p class="text-xs text-red-400 italic">This review has been removed.</p>
+  {% endif %}
+
+</div>

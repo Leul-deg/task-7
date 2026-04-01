@@ -1,0 +1,93 @@
+{% extends "base.html" %}
+{% block title %}My Reviews — StudioOps{% endblock %}
+
+{% block content %}
+<div class="max-w-3xl mx-auto space-y-10">
+
+  <h1 class="text-2xl font-bold text-stone-800">My Reviews</h1>
+
+  <!-- Written reviews -->
+  <section class="space-y-4">
+    <h2 class="text-sm font-semibold text-stone-600 uppercase tracking-wider">
+      Reviews I've Written
+      <span class="ml-2 text-stone-400 font-normal normal-case">({{ written | length }})</span>
+    </h2>
+    {% if written %}
+    <div class="space-y-4">
+      {% for review in written %}
+      {% set _ = review.update({'is_own': True}) %}
+        {% include "partials/reviews/review_card.html" %}
+      {% endfor %}
+    </div>
+    {% else %}
+    <div class="bg-white rounded-2xl border border-stone-200 shadow-sm p-8 text-center text-stone-400">
+      <p>You haven't written any reviews yet.</p>
+      <a href="{{ url_for('booking.my_bookings') }}"
+         class="mt-2 inline-block text-sm text-brand-600 hover:underline">
+        View completed sessions →
+      </a>
+    </div>
+    {% endif %}
+  </section>
+
+  <!-- Received reviews (instructor) -->
+  {% if received %}
+  <section class="space-y-4">
+    <h2 class="text-sm font-semibold text-stone-600 uppercase tracking-wider">
+      Reviews About My Sessions
+      <span class="ml-2 text-stone-400 font-normal normal-case">({{ received | length }})</span>
+    </h2>
+    <div class="space-y-4">
+      {% for review in received %}
+      {% set _ = review.update({'is_own': False}) %}
+        {% include "partials/reviews/review_card.html" %}
+      {% endfor %}
+    </div>
+  </section>
+  {% endif %}
+
+  <!-- Appeals -->
+  <section class="space-y-4">
+    <h2 class="text-sm font-semibold text-stone-600 uppercase tracking-wider">
+      My Disputes
+      <span class="ml-2 text-stone-400 font-normal normal-case">({{ appeals | length }})</span>
+    </h2>
+    {% if appeals %}
+    <div class="space-y-3">
+      {% for appeal in appeals %}
+      {% set status_cls = {
+        'pending': 'bg-amber-50 border-amber-200 text-amber-700',
+        'upheld': 'bg-emerald-50 border-emerald-200 text-emerald-700',
+        'rejected': 'bg-slate-50 border-slate-200 text-slate-600',
+      } %}
+      <div class="bg-white rounded-2xl border border-stone-200 shadow-sm p-5">
+        <div class="flex items-center justify-between gap-3 flex-wrap">
+          <p class="text-sm font-medium text-stone-700">Dispute #{{ appeal.appeal_id }}</p>
+          <span class="text-xs font-semibold px-2.5 py-0.5 rounded-full border capitalize
+                       {{ status_cls.get(appeal.status, 'bg-stone-100 text-stone-500 border-stone-200') }}">
+            {{ appeal.status }}
+          </span>
+        </div>
+        <p class="text-sm text-stone-500 mt-2 line-clamp-2">{{ appeal.reason }}</p>
+        <div class="flex items-center gap-3 mt-3 text-xs text-stone-400 flex-wrap">
+          <span>Filed {{ appeal.filed_at }}</span>
+          {% if appeal.status == 'pending' %}
+          <span>&middot;</span>
+          <span class="{% if appeal.is_overdue %}text-red-500 font-medium{% endif %}">
+            Deadline: {{ appeal.deadline }}
+            {% if appeal.is_overdue %}(Overdue){% else %}({{ appeal.days_remaining }}d left){% endif %}
+          </span>
+          {% endif %}
+        </div>
+      </div>
+      {% endfor %}
+    </div>
+    {% else %}
+    <div class="bg-white rounded-2xl border border-stone-200 shadow-sm p-8 text-center text-stone-400">
+      <p>You haven't filed any disputes.</p>
+    </div>
+    {% endif %}
+  </section>
+
+</div>
+{% endblock %}

@@ -1,0 +1,7 @@
+{% for flag in flags %}
+{% include "partials/admin/flag_row.html" %}
+{% else %}
+<tr>
+  <td colspan="6" class="px-4 py-10 text-center text-stone-400 text-sm">No feature flags configured.</td>
+</tr>
+{% endfor %}

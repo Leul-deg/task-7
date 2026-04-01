@@ -1,0 +1,58 @@
+/* StudioOps — minimal overrides. Tailwind handles the rest. */
+
+/* ── HTMX loading indicator (spinner) ────────────────────────── */
+.htmx-indicator {
+  display: none;
+  opacity: 0;
+  transition: opacity 200ms ease-in;
+}
+.htmx-request .htmx-indicator,
+.htmx-request.htmx-indicator {
+  display: inline-flex;
+  opacity: 1;
+}
+
+/* Prevent layout shift during HTMX swaps */
+[hx-target] {
+  min-height: 0;
+}
+
+/* Skeleton shimmer used while HTMX is loading content blocks */
+.htmx-request .htmx-skeleton {
+  background: linear-gradient(90deg, #f3f4f6 25%, #e5e7eb 50%, #f3f4f6 75%);
+  background-size: 200% 100%;
+  animation: shimmer 1.2s infinite;
+  border-radius: 4px;
+  color: transparent !important;
+}
+@keyframes shimmer {
+  0%   { background-position: 200% 0; }
+  100% { background-position: -200% 0; }
+}
+
+/* ── Smooth HTMX swaps ────────────────────────────────────────── */
+.htmx-swapping {
+  opacity: 0;
+  transition: opacity 150ms ease-out;
+}
+.htmx-added {
+  opacity: 0;
+  transition: opacity 200ms ease-in;
+}
+.htmx-settling .htmx-added {
+  opacity: 1;
+}
+
+/* ── Status badge helpers ─────────────────────────────────────── */
+.badge           { display: inline-block; padding: 0.125rem 0.5rem; border-radius: 9999px; font-size: 0.75rem; font-weight: 600; }
+.badge-green     { background: #d1fae5; color: #065f46; }
+.badge-red       { background: #fee2e2; color: #991b1b; }
+.badge-amber     { background: #fef3c7; color: #92400e; }
+.badge-slate     { background: #f1f5f9; color: #475569; }
+.badge-brand     { background: #ede9fe; color: #5b21b6; }
+.badge-sky       { background: #e0f2fe; color: #0369a1; }
+
+/* ── Mobile nav transition ────────────────────────────────────── */
+#mobile-menu {
+  transition: max-height 200ms ease-in-out;
+}

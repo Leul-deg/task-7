@@ -1,0 +1,77 @@
+{% extends "base.html" %}
+{% block title %}Reviews — {{ session.title }} — StudioOps{% endblock %}
+
+{% block content %}
+<div class="max-w-3xl mx-auto space-y-8">
+
+  <!-- Header -->
+  <div class="flex items-start justify-between gap-4 flex-wrap">
+    <div>
+      <h1 class="text-2xl font-bold text-stone-800">{{ session.title }}</h1>
+      <p class="text-sm text-stone-500 mt-0.5">
+        {{ session.start_time.strftime('%m/%d/%Y %I:%M %p') }}
+        {% if session.instructor %}· {{ session.instructor.username }}{% endif %}
+      </p>
+    </div>
+    {% if current_user.is_authenticated %}
+    <a href="{{ url_for('booking.my_bookings') }}"
+       class="text-sm text-brand-600 hover:underline">← My Bookings</a>
+    {% endif %}
+  </div>
+
+  <!-- Rating summary -->
+  <div class="bg-white rounded-2xl border border-stone-200 shadow-sm p-6">
+    <div class="flex flex-col sm:flex-row items-center gap-6">
+      <!-- Big number -->
+      <div class="text-center shrink-0">
+        <p class="text-6xl font-bold text-stone-800">{{ '%.1f'|format(average_rating) }}</p>
+        <div class="flex justify-center gap-0.5 mt-1">
+          {% for i in range(1, 6) %}
+          <span class="text-xl {% if average_rating >= i %}text-amber-400{% elif average_rating >= i - 0.5 %}text-amber-300{% else %}text-slate-200{% endif %}">★</span>
+          {% endfor %}
+        </div>
+        <p class="text-xs text-stone-400 mt-1">{{ total_reviews }} review{{ 's' if total_reviews != 1 }}</p>
+      </div>
+
+      <!-- Distribution bars -->
+      <div class="flex-1 w-full space-y-1">
+        {% for star in [5, 4, 3, 2, 1] %}
+        {% set count = rating_distribution[star] %}
+        {% set pct = ((count / total_reviews * 100) | round | int) if total_reviews else 0 %}
+        <div class="flex items-center gap-2 text-xs">
+          <span class="text-stone-500 w-4 text-right">{{ star }}</span>
+          <span class="text-amber-400">★</span>
+          <div class="flex-1 bg-stone-100 rounded-full h-2 overflow-hidden">
+            <div class="bg-amber-400 h-2 rounded-full transition-all" style="width: {{ pct }}%"></div>
+          </div>
+          <span class="text-stone-400 w-6 text-right">{{ count }}</span>
+        </div>
+        {% endfor %}
+      </div>
+    </div>
+  </div>
+
+  <!-- Sort controls -->
+  <div class="flex items-center justify-between">
+    <h2 class="text-sm font-semibold text-stone-700 uppercase tracking-wider">Reviews</h2>
+    <div class="flex gap-1">
+      {% for sort_val, sort_label in [('recent','Most Recent'), ('highest','Highest'), ('lowest','Lowest')] %}
+      <a href="{{ url_for('reviews.session_reviews', session_id=session_id, sort=sort_val) }}"
+         hx-get="{{ url_for('reviews.session_reviews', session_id=session_id, sort=sort_val) }}"
+         hx-target="#review-list"
+         hx-swap="innerHTML"
+         class="px-3 py-1.5 text-xs font-medium rounded-lg border transition-colors
+           {% if sort == sort_val %}bg-brand-600 text-white border-brand-600{% else %}bg-white text-stone-600 border-stone-200 hover:border-brand-400{% endif %}">
+        {{ sort_label }}
+      </a>
+      {% endfor %}
+    </div>
+  </div>
+
+  <!-- Review list -->
+  <div id="review-list">
+    {% include "partials/reviews/review_list.html" %}
+  </div>
+
+</div>
+{% endblock %}

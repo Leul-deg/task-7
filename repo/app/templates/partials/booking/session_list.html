@@ -1,0 +1,16 @@
+{% if sessions %}
+<div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+  {% for session in sessions %}
+    {% include "partials/booking/session_card.html" %}
+  {% endfor %}
+</div>
+{% else %}
+<div class="text-center py-16 bg-white rounded-xl border border-slate-100 shadow-sm">
+  <svg class="mx-auto w-12 h-12 text-slate-200 mb-3" fill="none" stroke="currentColor" stroke-width="1.5" viewBox="0 0 24 24">
+    <path stroke-linecap="round" stroke-linejoin="round"
+      d="M6.75 3v2.25M17.25 3v2.25M3 18.75V7.5a2.25 2.25 0 012.25-2.25h13.5A2.25 2.25 0 0121 7.5v11.25m-18 0A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75m-18 0v-7.5A2.25 2.25 0 015.25 9h13.5A2.25 2.25 0 0121 11.25v7.5"/>
+  </svg>
+  <p class="text-lg text-slate-500 font-medium">No classes scheduled for this date.</p>
+  <p class="text-sm text-slate-400 mt-1">Try selecting a different date or removing the instructor filter.</p>
+</div>
+{% endif %}

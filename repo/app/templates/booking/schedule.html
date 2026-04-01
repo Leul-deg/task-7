@@ -1,0 +1,86 @@
+{% extends "base.html" %}
+{% block title %}Class Schedule — StudioOps{% endblock %}
+
+{% block content %}
+<div class="max-w-6xl mx-auto px-4 py-8">
+
+  <h1 class="text-3xl font-bold text-slate-800 mb-6">Class Schedule</h1>
+
+  <!-- Filter Bar -->
+  <div class="flex flex-wrap gap-4 mb-6 p-4 bg-white rounded-xl shadow-sm border border-slate-100">
+
+    <!-- Date Picker -->
+    <div class="flex items-center gap-2">
+      <label for="schedule-date" class="text-sm font-medium text-slate-600">Date:</label>
+      <input
+        type="date"
+        id="schedule-date"
+        name="date"
+        value="{{ selected_date_iso }}"
+        class="border border-slate-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-teal-500 focus:border-teal-500 outline-none"
+        hx-get="/schedule"
+        hx-target="#session-list"
+        hx-swap="innerHTML"
+        hx-include="[name='instructor_id']"
+        hx-on::configRequest="
+          var d = event.detail.parameters.date;
+          if (d && d.includes('-')) {
+            var parts = d.split('-');
+            event.detail.parameters.date = parts[1] + '/' + parts[2] + '/' + parts[0];
+          }
+        "
+      />
+    </div>
+
+    <!-- Instructor Filter -->
+    <div class="flex items-center gap-2">
+      <label for="instructor-select" class="text-sm font-medium text-slate-600">Instructor:</label>
+      <select
+        id="instructor-select"
+        name="instructor_id"
+        class="border border-slate-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-teal-500 outline-none"
+        hx-get="/schedule"
+        hx-target="#session-list"
+        hx-swap="innerHTML"
+        hx-include="[name='date']"
+        hx-on::configRequest="
+          var d = document.getElementById('schedule-date').value;
+          if (d && d.includes('-')) {
+            var parts = d.split('-');
+            event.detail.parameters.date = parts[1] + '/' + parts[2] + '/' + parts[0];
+          }
+        "
+      >
+        <option value="">All Instructors</option>
+        {% for instructor in instructors %}
+        <option
+          value="{{ instructor.id }}"
+          {% if selected_instructor_id == instructor.id %}selected{% endif %}
+        >{{ instructor.username }}</option>
+        {% endfor %}
+      </select>
+    </div>
+
+    <!-- Loading indicator -->
+    <div class="htmx-indicator flex items-center text-sm text-teal-600 gap-1">
+      <svg class="animate-spin w-4 h-4" fill="none" viewBox="0 0 24 24">
+        <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"/>
+        <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8H4z"/>
+      </svg>
+      Loading…
+    </div>
+  </div>
+
+  <!-- Date display -->
+  <p class="text-sm text-slate-500 mb-4">
+    Showing classes for
+    <span class="font-medium text-slate-700">{{ selected_date }}</span>
+  </p>
+
+  <!-- Session List Container -->
+  <div id="session-list">
+    {% include "partials/booking/session_list.html" %}
+  </div>
+
+</div>
+{% endblock %}

@@ -1,0 +1,90 @@
+{% extends "base.html" %}
+{% block title %}Content Library — StudioOps{% endblock %}
+
+{% block content %}
+<div class="space-y-6">
+
+  <!-- Page header -->
+  <div class="flex items-center justify-between">
+    <div>
+      <h1 class="text-2xl font-bold text-stone-800">Content Library</h1>
+      <p class="text-sm text-stone-500 mt-1">{{ total }} article{{ 's' if total != 1 }} published</p>
+    </div>
+  </div>
+
+  <!-- Filter bar -->
+  <form id="filter-form" class="bg-white rounded-2xl border border-stone-200 shadow-sm p-4 space-y-4">
+
+    <!-- Content type buttons -->
+    <div class="flex flex-wrap gap-2">
+      <a href="{{ url_for('content.browse') }}"
+         class="px-3 py-1.5 text-sm font-medium rounded-lg border transition-colors
+           {% if not selected_type %}bg-brand-600 text-white border-brand-600{% else %}bg-white text-stone-600 border-stone-200 hover:border-brand-400{% endif %}">
+        All
+      </a>
+      {% for ct_val, ct_label in [('article','Articles'), ('chapter','Chapters'), ('book','Books')] %}
+      <a href="{{ url_for('content.browse', content_type=ct_val, category=selected_category, search=search, tags=tags_raw) }}"
+         class="px-3 py-1.5 text-sm font-medium rounded-lg border transition-colors
+           {% if selected_type == ct_val %}bg-brand-600 text-white border-brand-600{% else %}bg-white text-stone-600 border-stone-200 hover:border-brand-400{% endif %}">
+        {{ ct_label }}
+      </a>
+      {% endfor %}
+    </div>
+
+    <!-- Search + category + tags row -->
+    <div class="grid grid-cols-1 sm:grid-cols-3 gap-3">
+      <!-- Search -->
+      <input
+        type="text"
+        name="search"
+        value="{{ search }}"
+        placeholder="Search titles…"
+        class="content-filter w-full text-sm rounded-lg border border-stone-200 px-3 py-2 focus:outline-none focus:ring-2 focus:ring-brand-400"
+        hx-get="{{ url_for('content.browse') }}"
+        hx-target="#content-grid"
+        hx-trigger="keyup changed delay:300ms"
+        hx-include=".content-filter"
+      />
+
+      <!-- Category -->
+      <select
+        name="category"
+        class="content-filter w-full text-sm rounded-lg border border-stone-200 px-3 py-2 focus:outline-none focus:ring-2 focus:ring-brand-400"
+        hx-get="{{ url_for('content.browse') }}"
+        hx-target="#content-grid"
+        hx-trigger="change"
+        hx-include=".content-filter"
+      >
+        <option value="">All Categories</option>
+        {% for cat in categories %}
+        <option value="{{ cat }}" {% if selected_category == cat %}selected{% endif %}>{{ cat }}</option>
+        {% endfor %}
+      </select>
+
+      <!-- Tags -->
+      <input
+        type="text"
+        name="tags"
+        value="{{ tags_raw }}"
+        placeholder="Filter by tag…"
+        class="content-filter w-full text-sm rounded-lg border border-stone-200 px-3 py-2 focus:outline-none focus:ring-2 focus:ring-brand-400"
+        hx-get="{{ url_for('content.browse') }}"
+        hx-target="#content-grid"
+        hx-trigger="keyup changed delay:400ms"
+        hx-include=".content-filter"
+      />
+    </div>
+
+    <!-- Hidden fields to carry current filter state on HTMX requests -->
+    {% if selected_type %}
+    <input type="hidden" name="content_type" value="{{ selected_type }}" class="content-filter" />
+    {% endif %}
+  </form>
+
+  <!-- Content grid -->
+  <div id="content-grid">
+    {% include "partials/content/content_grid.html" %}
+  </div>
+
+</div>
+{% endblock %}

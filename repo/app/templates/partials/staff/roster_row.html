@@ -1,0 +1,67 @@
+<tr id="roster-row-{{ row.reservation_id }}" class="hover:bg-slate-50 transition-colors">
+
+  <!-- Customer name -->
+  <td class="px-4 py-3 font-medium text-slate-800">{{ row.customer_name }}</td>
+
+  <!-- Booked at -->
+  <td class="px-4 py-3 text-slate-500 text-xs">{{ row.booked_at }}</td>
+
+  <!-- Credit score badge -->
+  <td class="px-4 py-3">
+    <span class="text-xs font-semibold px-2 py-0.5 rounded-full
+      {% if row.credit_color == 'green' %}text-emerald-700 bg-emerald-50 border border-emerald-200
+      {% elif row.credit_color == 'yellow' %}text-amber-700 bg-amber-50 border border-amber-200
+      {% else %}text-red-700 bg-red-50 border border-red-200{% endif %}">
+      {{ row.credit_score }}
+    </span>
+  </td>
+
+  <!-- Status -->
+  <td class="px-4 py-3">
+    {% if row.checked_in %}
+    <span class="inline-flex items-center gap-1 text-xs font-medium text-emerald-700 bg-emerald-50 border border-emerald-100 px-2 py-0.5 rounded-full">
+      <svg class="w-3 h-3" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24">
+        <path stroke-linecap="round" stroke-linejoin="round" d="M4.5 12.75l6 6 9-13.5"/>
+      </svg>
+      In at {{ row.checked_in_at }}
+    </span>
+    {% elif row.is_no_show %}
+    <span class="text-xs font-medium text-red-700 bg-red-50 border border-red-100 px-2 py-0.5 rounded-full">
+      No-Show
+    </span>
+    {% else %}
+    <span class="text-xs font-medium text-slate-500 bg-slate-100 border border-slate-200 px-2 py-0.5 rounded-full">
+      Pending
+    </span>
+    {% endif %}
+  </td>
+
+  <!-- Actions -->
+  <td class="px-4 py-3">
+    <div class="flex gap-2">
+      {% if not row.checked_in and not row.is_no_show and session_started %}
+      <button
+        hx-post="/staff/checkin/{{ row.reservation_id }}"
+        hx-target="#roster-row-{{ row.reservation_id }}"
+        hx-swap="outerHTML"
+        class="px-2.5 py-1 text-xs font-medium text-emerald-700 bg-emerald-50 border border-emerald-200 rounded-lg hover:bg-emerald-100 transition-colors focus:outline-none focus:ring-2 focus:ring-emerald-400">
+        Check In
+      </button>
+      {% endif %}
+      {% if not row.checked_in and not row.is_no_show and session_ended %}
+      <button
+        hx-post="/staff/no-show/{{ row.reservation_id }}"
+        hx-target="#roster-row-{{ row.reservation_id }}"
+        hx-swap="outerHTML"
+        hx-confirm="Mark {{ row.customer_name }} as no-show?"
+        class="px-2.5 py-1 text-xs font-medium text-red-600 bg-red-50 border border-red-200 rounded-lg hover:bg-red-100 transition-colors focus:outline-none focus:ring-2 focus:ring-red-400">
+        No-Show
+      </button>
+      {% endif %}
+      {% if row.checked_in and row.checked_in_by %}
+      <span class="text-xs text-slate-400">by {{ row.checked_in_by }}</span>
+      {% endif %}
+    </div>
+  </td>
+
+</tr>

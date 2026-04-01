@@ -1,0 +1,81 @@
+{% extends "base.html" %}
+{% block title %}My Bookings — StudioOps{% endblock %}
+
+{% block content %}
+<div class="max-w-5xl mx-auto px-4 py-8">
+
+  <div class="flex items-center justify-between mb-6">
+    <h1 class="text-3xl font-bold text-slate-800">My Bookings</h1>
+    <a href="/schedule"
+       class="inline-flex items-center gap-2 text-sm font-medium text-teal-600 hover:text-teal-800 transition-colors">
+      <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+        <path stroke-linecap="round" stroke-linejoin="round" d="M12 4.5v15m7.5-7.5h-15"/>
+      </svg>
+      Book a Class
+    </a>
+  </div>
+
+  <!-- Credit Score Banner -->
+  <div class="mb-6 p-4 bg-white rounded-xl shadow-sm border border-slate-100 flex items-center justify-between">
+    <div>
+      <p class="text-sm text-slate-500">Your credit score</p>
+      <p class="text-2xl font-bold
+        {% if current_user.credit_score < 20 %}text-red-600
+        {% elif current_user.credit_score < 50 %}text-amber-600
+        {% else %}text-emerald-600{% endif %}">
+        {{ current_user.credit_score }}
+      </p>
+    </div>
+    <div class="text-right text-xs text-slate-400 max-w-xs">
+      {% if current_user.credit_score < 20 %}
+        <span class="text-red-500 font-medium">Booking suspended.</span> Score below 20.
+      {% elif current_user.credit_score < 50 %}
+        <span class="text-amber-600 font-medium">Approval required</span> for new bookings. Score below 50.
+      {% else %}
+        Score looks good. Late cancellations (under 12h) cost 1 point.
+      {% endif %}
+    </div>
+  </div>
+
+  <!-- Tab Filter -->
+  <div class="flex gap-2 mb-6 border-b border-slate-100 pb-0">
+    {% set tab_items = [
+      ("upcoming", "Upcoming"),
+      ("past", "Past"),
+      ("cancelled", "Cancelled"),
+      ("waitlisted", "Waitlisted")
+    ] %}
+    {% for tab_key, tab_label in tab_items %}
+    <button
+      hx-get="/booking/my-bookings"
+      hx-vals='{"tab": "{{ tab_key }}"}'
+      hx-target="#bookings-container"
+      hx-swap="innerHTML"
+      class="px-4 py-2 text-sm font-medium rounded-t-lg transition-colors
+        {% if active_tab == tab_key %}
+          text-teal-700 border-b-2 border-teal-600 bg-teal-50/60
+        {% else %}
+          text-slate-500 hover:text-slate-700 hover:bg-slate-50
+        {% endif %}">
+      {{ tab_label }}
+      {% if tab_key == "upcoming" and upcoming_count %}
+        <span class="ml-1.5 text-xs font-semibold text-teal-600 bg-teal-100 px-1.5 py-0.5 rounded-full">
+          {{ upcoming_count }}
+        </span>
+      {% endif %}
+      {% if tab_key == "waitlisted" and waitlisted_count %}
+        <span class="ml-1.5 text-xs font-semibold text-amber-600 bg-amber-100 px-1.5 py-0.5 rounded-full">
+          {{ waitlisted_count }}
+        </span>
+      {% endif %}
+    </button>
+    {% endfor %}
+  </div>
+
+  <!-- Bookings Container (swapped by HTMX on tab change) -->
+  <div id="bookings-container">
+    {% include "partials/booking/bookings_tab.html" %}
+  </div>
+
+</div>
+{% endblock %}

@@ -1,0 +1,78 @@
+{% extends "base.html" %}
+{% block title %}Content Filters — StudioOps{% endblock %}
+
+{% block content %}
+<div class="max-w-4xl mx-auto space-y-6">
+
+  <!-- Header -->
+  <div class="flex items-center gap-4">
+    <a href="{{ url_for('content.editor_dashboard') }}"
+       class="text-stone-400 hover:text-brand-700 transition-colors">
+      <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+        <path stroke-linecap="round" stroke-linejoin="round" d="M10.5 19.5L3 12m0 0l7.5-7.5M3 12h18" />
+      </svg>
+    </a>
+    <div>
+      <h1 class="text-2xl font-bold text-stone-800">Content Filters</h1>
+      <p class="text-sm text-stone-500 mt-0.5">Block prohibited terms from appearing in published content.</p>
+    </div>
+  </div>
+
+  <!-- Add filter form -->
+  <div class="bg-white rounded-2xl border border-stone-200 shadow-sm p-6">
+    <h2 class="text-sm font-semibold text-stone-700 mb-4">Add New Filter</h2>
+    <div id="filter-form-error"></div>
+    <form
+      hx-post="{{ url_for('content.create_filter') }}"
+      hx-target="#filter-list"
+      hx-swap="beforeend"
+      class="flex flex-col sm:flex-row gap-3"
+    >
+      <input type="hidden" name="csrf_token" value="{{ csrf_token() }}" />
+
+      <input type="text" name="pattern" required placeholder="Pattern (keyword or regex)"
+             class="flex-1 text-sm rounded-xl border border-stone-200 px-4 py-2.5 focus:outline-none focus:ring-2 focus:ring-brand-400" />
+
+      <select name="filter_type"
+              class="text-sm rounded-xl border border-stone-200 px-4 py-2.5 focus:outline-none focus:ring-2 focus:ring-brand-400">
+        <option value="keyword">Keyword</option>
+        <option value="regex">Regex</option>
+      </select>
+
+      <button type="submit"
+              class="px-5 py-2.5 text-sm font-medium bg-brand-600 text-white rounded-xl hover:bg-brand-700 transition-colors shadow-sm whitespace-nowrap">
+        Add Filter
+      </button>
+    </form>
+  </div>
+
+  <!-- Filter list -->
+  <div class="bg-white rounded-2xl border border-stone-200 shadow-sm overflow-hidden">
+    {% if filters %}
+    <div class="overflow-x-auto">
+      <table class="w-full text-sm">
+        <thead>
+          <tr class="border-b border-stone-100 bg-stone-50">
+            <th class="text-left px-5 py-3 text-xs font-semibold text-stone-500 uppercase tracking-wider">Pattern</th>
+            <th class="text-left px-4 py-3 text-xs font-semibold text-stone-500 uppercase tracking-wider">Type</th>
+            <th class="text-left px-4 py-3 text-xs font-semibold text-stone-500 uppercase tracking-wider">Active</th>
+            <th class="text-left px-4 py-3 text-xs font-semibold text-stone-500 uppercase tracking-wider">Created</th>
+            <th class="px-4 py-3"></th>
+          </tr>
+        </thead>
+        <tbody class="divide-y divide-stone-50" id="filter-list">
+          {% for f in filters %}
+            {% include "partials/content/filter_row.html" %}
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+    {% else %}
+    <div class="py-12 text-center" id="filter-list">
+      <p class="text-stone-400 text-sm">No filters yet. Add one above.</p>
+    </div>
+    {% endif %}
+  </div>
+
+</div>
+{% endblock %}

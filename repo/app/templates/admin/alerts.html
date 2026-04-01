@@ -1,0 +1,94 @@
+{% extends "base.html" %}
+{% block title %}Alert Thresholds — StudioOps{% endblock %}
+
+{% block content %}
+<div class="max-w-4xl mx-auto space-y-6">
+
+  <div class="flex items-center justify-between flex-wrap gap-3">
+    <div>
+      <h1 class="text-2xl font-bold text-stone-800">Alert Thresholds</h1>
+      <p class="text-sm text-stone-500 mt-0.5">Configure when to trigger system alerts</p>
+    </div>
+    <a href="{{ url_for('admin.diagnostics') }}"
+       class="text-sm text-stone-500 hover:text-brand-700 transition-colors">← Diagnostics</a>
+  </div>
+
+  <!-- Create form -->
+  <div class="bg-white rounded-2xl border border-stone-200 shadow-sm p-6">
+    <h2 class="text-sm font-semibold text-stone-700 mb-4">New Threshold</h2>
+    <form id="alert-create-form"
+          hx-post="{{ url_for('admin.alerts') }}"
+          hx-target="#alert-tbody"
+          hx-swap="innerHTML"
+          class="flex flex-wrap items-end gap-3">
+      <input type="hidden" name="csrf_token" value="{{ csrf_token() }}" />
+
+      <div>
+        <label class="block text-xs text-stone-500 mb-1">Metric</label>
+        <select name="metric" required
+                class="text-sm border border-stone-200 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-brand-400">
+          <option value="error_rate">Error Rate %</option>
+          <option value="latency_p99">p99 Latency ms</option>
+          <option value="disk_usage">Disk Usage %</option>
+        </select>
+      </div>
+
+      <div>
+        <label class="block text-xs text-stone-500 mb-1">Operator</label>
+        <select name="operator" required
+                class="text-sm border border-stone-200 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-brand-400">
+          <option value=">">&gt;</option>
+          <option value=">=">&gt;=</option>
+          <option value="<">&lt;</option>
+          <option value="<=">&lt;=</option>
+        </select>
+      </div>
+
+      <div>
+        <label class="block text-xs text-stone-500 mb-1">Value</label>
+        <input type="number" name="threshold_value" step="0.01" required placeholder="e.g. 5.0"
+               class="text-sm border border-stone-200 rounded-lg px-3 py-2 w-28 focus:outline-none focus:ring-2 focus:ring-brand-400" />
+      </div>
+
+      <div>
+        <label class="block text-xs text-stone-500 mb-1">Window (min)</label>
+        <input type="number" name="window_minutes" value="60" min="1" required
+               class="text-sm border border-stone-200 rounded-lg px-3 py-2 w-24 focus:outline-none focus:ring-2 focus:ring-brand-400" />
+      </div>
+
+      <button type="submit"
+              class="text-sm font-medium bg-brand-600 text-white px-4 py-2 rounded-lg hover:bg-brand-700 transition-colors">
+        Add Threshold
+      </button>
+    </form>
+  </div>
+
+  <!-- Thresholds table -->
+  <div class="bg-white rounded-2xl border border-stone-200 shadow-sm overflow-hidden">
+    {% if thresholds %}
+    <div class="overflow-x-auto">
+      <table class="min-w-full text-sm">
+        <thead>
+          <tr class="text-xs text-stone-400 uppercase tracking-wider bg-stone-50 border-b border-stone-100">
+            <th class="px-4 py-3 text-left">Metric</th>
+            <th class="px-4 py-3 text-left">Condition</th>
+            <th class="px-4 py-3 text-left">Window</th>
+            <th class="px-4 py-3 text-left">Status</th>
+            <th class="px-4 py-3 text-left">Last Triggered</th>
+            <th class="px-4 py-3 text-right">Actions</th>
+          </tr>
+        </thead>
+        <tbody id="alert-tbody" class="divide-y divide-stone-100">
+          {% include "partials/admin/alert_rows.html" %}
+        </tbody>
+      </table>
+    </div>
+    {% else %}
+    <div id="alert-empty" class="py-16 text-center text-stone-400">
+      <p class="text-sm">No alert thresholds configured.</p>
+    </div>
+    {% endif %}
+  </div>
+
+</div>
+{% endblock %}

@@ -1,0 +1,13 @@
+<div class="bg-red-50 border border-red-200 rounded-xl p-4 space-y-2">
+  <p class="text-sm font-semibold text-red-700">{{ reason }}</p>
+  {% if violations %}
+  <ul class="space-y-1 mt-2">
+    {% for v in violations %}
+    <li class="text-xs text-red-600 flex gap-2">
+      <span class="font-semibold capitalize">{{ v.filter_type }}:</span>
+      <span>matched <code class="bg-red-100 px-1 rounded">{{ v.match }}</code> for pattern <code class="bg-red-100 px-1 rounded">{{ v.pattern }}</code> at position {{ v.position }}</span>
+    </li>
+    {% endfor %}
+  </ul>
+  {% endif %}
+</div>

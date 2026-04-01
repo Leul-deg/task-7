@@ -1,0 +1,76 @@
+<tr class="hover:bg-stone-50 transition-colors" id="editor-row-{{ item.id }}">
+  <!-- Title -->
+  <td class="px-5 py-3">
+    <a href="{{ url_for('content.view', content_id=item.id) }}"
+       class="font-medium text-stone-800 hover:text-brand-700 transition-colors line-clamp-1">
+      {{ item.title }}
+    </a>
+  </td>
+
+  <!-- Type -->
+  <td class="px-4 py-3">
+    {% set type_cls = {'article': 'text-blue-700 bg-blue-50', 'book': 'text-violet-700 bg-violet-50', 'chapter': 'text-teal-700 bg-teal-50'} %}
+    <span class="text-xs font-medium px-2 py-0.5 rounded-full capitalize {{ type_cls.get(item.content_type, 'text-stone-600 bg-stone-100') }}">
+      {{ item.content_type }}
+    </span>
+  </td>
+
+  <!-- Status badge (swappable via HTMX) -->
+  <td class="px-4 py-3" id="status-badge-{{ item.id }}">
+    {% include "partials/content/status_badge.html" %}
+  </td>
+
+  <!-- Updated -->
+  <td class="px-4 py-3 text-stone-500 text-xs whitespace-nowrap">{{ item.updated_at }}</td>
+
+  <!-- Version -->
+  <td class="px-4 py-3 text-stone-400 text-xs font-mono">v{{ item.current_version }}</td>
+
+  <!-- Author -->
+  <td class="px-4 py-3 text-stone-500 text-xs">{{ item.author_name }}</td>
+
+  <!-- Actions -->
+  <td class="px-4 py-3">
+    <div class="flex items-center gap-2 justify-end flex-wrap">
+      <!-- Edit -->
+      <a href="{{ url_for('content.editor_edit', content_id=item.id) }}"
+         class="text-xs font-medium text-stone-600 hover:text-brand-700 transition-colors px-2 py-1 rounded-lg border border-stone-200 hover:border-brand-300">
+        Edit
+      </a>
+
+      <!-- Submit for Review (draft only) -->
+      {% if item.status == 'draft' %}
+      <button
+        hx-post="{{ url_for('content.submit_review', content_id=item.id) }}"
+        hx-target="#status-badge-{{ item.id }}"
+        hx-swap="outerHTML"
+        class="text-xs font-medium text-amber-700 bg-amber-50 border border-amber-200 hover:bg-amber-100 px-2 py-1 rounded-lg transition-colors">
+        Submit
+      </button>
+      {% endif %}
+
+      <!-- Publish (in_review + admin only) -->
+      {% if item.status == 'in_review' and current_user.role == 'admin' %}
+      <button
+        hx-post="{{ url_for('content.publish', content_id=item.id) }}"
+        hx-target="#status-badge-{{ item.id }}"
+        hx-swap="outerHTML"
+        class="text-xs font-medium text-emerald-700 bg-emerald-50 border border-emerald-200 hover:bg-emerald-100 px-2 py-1 rounded-lg transition-colors">
+        Publish
+      </button>
+      <!-- Reject (in_review + admin only) -->
+      <button
+        onclick="openRejectModal({{ item.id }})"
+        class="text-xs font-medium text-red-600 bg-red-50 border border-red-200 hover:bg-red-100 px-2 py-1 rounded-lg transition-colors">
+        Reject
+      </button>
+      {% endif %}
+
+      <!-- History -->
+      <a href="{{ url_for('content.history', content_id=item.id) }}"
+         class="text-xs font-medium text-stone-500 hover:text-brand-700 transition-colors px-2 py-1 rounded-lg border border-stone-200 hover:border-brand-300">
+        History
+      </a>
+    </div>
+  </td>
+</tr>

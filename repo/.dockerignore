@@ -1,0 +1,58 @@
+# Python
+__pycache__/
+*.py[cod]
+*.pyo
+*.pyd
+.Python
+
+# Virtual environments
+venv/
+.venv/
+env/
+ENV/
+
+# Environment / secrets
+.env
+.env.*
+
+# Runtime data (mounted as volumes)
+uploads/
+backups/
+logs/
+*.db
+*.sqlite
+*.sqlite3
+instance/
+
+# Tests
+unit_tests/
+API_tests/
+conftest.py
+run_tests.sh
+.pytest_cache/
+.coverage
+htmlcov/
+coverage.xml
+
+# VCS
+.git/
+.gitignore
+
+# Documentation
+*.md
+README*
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Docker files themselves (not needed inside image)
+Dockerfile
+docker-compose.yml
+.dockerignore

@@ -1,0 +1,78 @@
+<form
+  method="post"
+  action="{{ url_for('auth.login') }}"
+  hx-post="{{ url_for('auth.login') }}"
+  hx-target="#login-form-container"
+  hx-swap="innerHTML"
+  hx-indicator="#login-spinner"
+  class="space-y-5"
+>
+  <input type="hidden" name="csrf_token" value="{{ csrf_token() }}" />
+
+  {% if errors.general %}
+  <div class="rounded-lg {% if 'locked' in errors.general|lower %}bg-amber-50 border-amber-300 text-amber-800{% else %}bg-red-50 border-red-300 text-red-700{% endif %} border px-4 py-3 text-sm">
+    {% if 'locked' in errors.general|lower %}
+    <div class="flex items-start gap-2">
+      <svg class="w-4 h-4 mt-0.5 shrink-0" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+        <path stroke-linecap="round" stroke-linejoin="round" d="M12 9v2m0 4h.01M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z"/>
+      </svg>
+      <span>{{ errors.general }}</span>
+    </div>
+    {% else %}
+    {{ errors.general }}
+    {% endif %}
+  </div>
+  {% endif %}
+
+  <div>
+    <label for="identifier" class="block text-sm font-medium text-stone-700 mb-1">
+      Username or Email
+    </label>
+    <input
+      id="identifier"
+      name="identifier"
+      type="text"
+      autocomplete="username"
+      value="{{ form_data.get('identifier', '') }}"
+      class="w-full rounded-lg border {% if errors.identifier %}border-red-400 bg-red-50{% else %}border-stone-300{% endif %} px-3 py-2 text-sm shadow-sm focus:outline-none focus:ring-2 focus:ring-brand-500 focus:border-brand-500 transition"
+      placeholder="you@example.com"
+    />
+    {% if errors.identifier %}
+    <p class="mt-1 text-xs text-red-600">{{ errors.identifier }}</p>
+    {% endif %}
+  </div>
+
+  <div>
+    <label for="password" class="block text-sm font-medium text-stone-700 mb-1">Password</label>
+    <input
+      id="password"
+      name="password"
+      type="password"
+      autocomplete="current-password"
+      class="w-full rounded-lg border {% if errors.password %}border-red-400 bg-red-50{% else %}border-stone-300{% endif %} px-3 py-2 text-sm shadow-sm focus:outline-none focus:ring-2 focus:ring-brand-500 focus:border-brand-500 transition"
+      placeholder="••••••••••"
+    />
+    {% if errors.password %}
+    <p class="mt-1 text-xs text-red-600">{{ errors.password }}</p>
+    {% endif %}
+  </div>
+
+  <div class="flex items-center gap-2">
+    <input id="remember" name="remember" type="checkbox" value="1"
+           class="rounded border-stone-300 text-brand-600 focus:ring-brand-500" />
+    <label for="remember" class="text-sm text-stone-600">Remember me for 8 hours</label>
+  </div>
+
+  <button
+    type="submit"
+    class="w-full bg-brand-600 hover:bg-brand-700 text-white font-medium py-2.5 rounded-lg text-sm transition-colors focus:outline-none focus:ring-2 focus:ring-brand-500 focus:ring-offset-2 flex items-center justify-center gap-2"
+  >
+    <span id="login-spinner" class="htmx-indicator">
+      <svg class="animate-spin w-4 h-4" fill="none" viewBox="0 0 24 24">
+        <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"/>
+        <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8H4z"/>
+      </svg>
+    </span>
+    Log in
+  </button>
+</form>

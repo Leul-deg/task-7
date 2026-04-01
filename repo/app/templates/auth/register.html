@@ -1,0 +1,22 @@
+{% extends "base.html" %}
+{% block title %}Create Account — StudioOps{% endblock %}
+
+{% block content %}
+<div class="min-h-[70vh] flex items-center justify-center">
+  <div class="w-full max-w-md">
+    <div class="bg-white rounded-2xl shadow-sm border border-stone-200 p-8">
+      <h1 class="text-2xl font-semibold text-stone-800 mb-1">Create your account</h1>
+      <p class="text-sm text-stone-500 mb-7">Join StudioOps to start booking sessions</p>
+
+      <div id="register-form-container">
+        {% include "auth/_register_form.html" %}
+      </div>
+
+      <p class="mt-6 text-center text-sm text-stone-500">
+        Already have an account?
+        <a href="{{ url_for('auth.login') }}" class="text-brand-600 font-medium hover:underline">Log in</a>
+      </p>
+    </div>
+  </div>
+</div>
+{% endblock %}

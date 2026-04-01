@@ -1,0 +1,79 @@
+{% extends "base.html" %}
+{% block title %}Resource Warnings — StudioOps{% endblock %}
+
+{% block content %}
+<div class="max-w-5xl mx-auto px-4 py-8">
+
+  <div class="flex items-center justify-between mb-6">
+    <h1 class="text-3xl font-bold text-slate-800">Resource Warnings</h1>
+    <a href="/staff/schedule"
+       class="text-sm text-slate-500 hover:text-teal-600 transition-colors">
+      Back to Schedule
+    </a>
+  </div>
+
+  {% if not warnings %}
+  <!-- All clear -->
+  <div class="flex items-center gap-4 bg-emerald-50 border border-emerald-200 rounded-2xl px-6 py-5">
+    <div class="w-10 h-10 rounded-full bg-emerald-100 flex items-center justify-center shrink-0">
+      <svg class="w-5 h-5 text-emerald-600" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24">
+        <path stroke-linecap="round" stroke-linejoin="round" d="M4.5 12.75l6 6 9-13.5"/>
+      </svg>
+    </div>
+    <div>
+      <p class="font-semibold text-emerald-800">All Clear</p>
+      <p class="text-sm text-emerald-600">No resource conflicts detected in the next 7 days.</p>
+    </div>
+  </div>
+
+  {% else %}
+  <div class="bg-white rounded-xl shadow-sm border border-slate-100 overflow-hidden">
+    <table class="w-full text-sm">
+      <thead class="bg-slate-50 border-b border-slate-100">
+        <tr>
+          <th class="text-left px-4 py-3 text-xs font-semibold text-slate-500 uppercase tracking-wide">Session</th>
+          <th class="text-left px-4 py-3 text-xs font-semibold text-slate-500 uppercase tracking-wide">Date</th>
+          <th class="text-left px-4 py-3 text-xs font-semibold text-slate-500 uppercase tracking-wide">Time</th>
+          <th class="text-left px-4 py-3 text-xs font-semibold text-slate-500 uppercase tracking-wide">Resource</th>
+          <th class="text-left px-4 py-3 text-xs font-semibold text-slate-500 uppercase tracking-wide">Issue</th>
+          <th class="text-left px-4 py-3 text-xs font-semibold text-slate-500 uppercase tracking-wide">Severity</th>
+        </tr>
+      </thead>
+      <tbody class="divide-y divide-slate-50">
+        {% for w in warnings %}
+        <tr class="hover:bg-slate-50 transition-colors">
+          <td class="px-4 py-3 font-medium text-slate-800">{{ w.session_title }}</td>
+          <td class="px-4 py-3 text-slate-500 text-xs">{{ w.session_date }}</td>
+          <td class="px-4 py-3 text-slate-500 text-xs whitespace-nowrap">{{ w.session_time }}</td>
+          <td class="px-4 py-3 text-slate-600">
+            {% if w.type == "instructor_double_booked" %}
+            {{ w.instructor_name }}
+            {% else %}
+            {{ w.resource_name }}
+            {% endif %}
+          </td>
+          <td class="px-4 py-3 text-slate-500 text-xs">
+            {% if w.type == "instructor_double_booked" %}
+            Also teaching <em>{{ w.conflicting_session }}</em> at {{ w.conflicting_time }}
+            {% else %}
+            {{ w.current_usage }} / {{ w.capacity }} in use
+            {% endif %}
+          </td>
+          <td class="px-4 py-3">
+            {% if w.severity == "overbooked" %}
+            <span class="text-xs font-semibold text-red-700 bg-red-50 border border-red-200 px-2 py-0.5 rounded-full">Overbooked</span>
+            {% elif w.severity == "conflict" %}
+            <span class="text-xs font-semibold text-blue-700 bg-blue-50 border border-blue-200 px-2 py-0.5 rounded-full">Instructor Conflict</span>
+            {% else %}
+            <span class="text-xs font-semibold text-amber-700 bg-amber-50 border border-amber-200 px-2 py-0.5 rounded-full">At Capacity</span>
+            {% endif %}
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  {% endif %}
+
+</div>
+{% endblock %}

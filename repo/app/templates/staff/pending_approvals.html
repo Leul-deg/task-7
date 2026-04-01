@@ -1,0 +1,78 @@
+{% extends "base.html" %}
+{% block title %}Pending Approvals — StudioOps{% endblock %}
+
+{% block content %}
+<div class="max-w-4xl mx-auto px-4 py-8">
+
+  <div class="flex items-center justify-between mb-6">
+    <div>
+      <h1 class="text-3xl font-bold text-slate-800">Pending Approvals</h1>
+      <p class="text-sm text-slate-500 mt-0.5">Reservations awaiting staff review</p>
+    </div>
+    {% if approvals %}
+    <span class="text-sm font-semibold text-amber-700 bg-amber-50 border border-amber-200 px-3 py-1.5 rounded-full">
+      {{ approvals|length }} pending
+    </span>
+    {% endif %}
+  </div>
+
+  {% if not approvals %}
+  <div class="text-center py-16 bg-white rounded-2xl border border-slate-100 shadow-sm">
+    <svg class="mx-auto w-12 h-12 text-slate-200 mb-3" fill="none" stroke="currentColor" stroke-width="1.5" viewBox="0 0 24 24">
+      <path stroke-linecap="round" stroke-linejoin="round" d="M9 12.75L11.25 15 15 9.75M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/>
+    </svg>
+    <p class="text-lg text-slate-500 font-medium">No pending approvals</p>
+    <p class="text-sm text-slate-400 mt-1">All booking requests have been resolved.</p>
+  </div>
+
+  {% else %}
+  <div class="space-y-3" id="approvals-list">
+    {% for a in approvals %}
+    <div class="approval-card bg-white rounded-xl shadow-sm border border-slate-100 p-5"
+         id="approval-{{ a.reservation_id }}">
+      <div class="flex flex-wrap items-start justify-between gap-4">
+
+        <!-- Customer & session info -->
+        <div class="flex-1 min-w-0">
+          <div class="flex items-center gap-2 mb-1">
+            <span class="font-semibold text-slate-800">{{ a.customer_name }}</span>
+            <span class="text-xs font-semibold px-2 py-0.5 rounded-full
+              {% if a.credit_color == 'green' %}text-emerald-700 bg-emerald-50 border border-emerald-200
+              {% elif a.credit_color == 'yellow' %}text-amber-700 bg-amber-50 border border-amber-200
+              {% else %}text-red-700 bg-red-50 border border-red-200{% endif %}">
+              {{ a.credit_score }} pts
+            </span>
+          </div>
+          <p class="font-medium text-teal-700">{{ a.session_title }}</p>
+          <p class="text-sm text-slate-500">
+            {{ a.session_date }} · {{ a.session_time }}
+          </p>
+          <p class="text-xs text-slate-400 mt-1">Requested {{ a.booked_at }}</p>
+        </div>
+
+        <!-- Approve / Deny buttons -->
+        <div class="flex gap-2 shrink-0">
+          <button
+            hx-post="/staff/approve/{{ a.reservation_id }}"
+            hx-target="#approval-{{ a.reservation_id }}"
+            hx-swap="outerHTML"
+            class="px-4 py-2 text-sm font-medium text-white bg-emerald-600 hover:bg-emerald-700 rounded-lg transition-colors focus:outline-none focus:ring-2 focus:ring-emerald-400 focus:ring-offset-1">
+            Approve
+          </button>
+          <button
+            hx-post="/staff/deny/{{ a.reservation_id }}"
+            hx-target="#approval-{{ a.reservation_id }}"
+            hx-swap="outerHTML"
+            hx-confirm="Deny this booking request from {{ a.customer_name }}?"
+            class="px-4 py-2 text-sm font-medium text-white bg-red-500 hover:bg-red-600 rounded-lg transition-colors focus:outline-none focus:ring-2 focus:ring-red-400 focus:ring-offset-1">
+            Deny
+          </button>
+        </div>
+      </div>
+    </div>
+    {% endfor %}
+  </div>
+  {% endif %}
+
+</div>
+{% endblock %}
