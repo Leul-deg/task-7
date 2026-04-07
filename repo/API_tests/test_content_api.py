@@ -2,10 +2,13 @@
 API / integration tests for content endpoints.
 Uses the shared app/client/db/login_as fixtures from conftest.py.
 """
+from io import BytesIO
+
 import pytest
 from app.extensions import db as _db
 from app.models.content import Content, ContentFilter, ContentVersion
-from app.services import content_service
+from app.services import content_service, file_service
+from werkzeug.datastructures import FileStorage
 
 
 # ── Public browse ─────────────────────────────────────────────────────────────
@@ -57,6 +60,66 @@ class TestPublicBrowse:
         """GET /content/99999 returns 404."""
         resp = client.get("/content/99999")
         assert resp.status_code == 404
+
+
+class TestMediaAccess:
+    def test_media_requires_login(self, client, sample_content):
+        """Unauthenticated media access redirects to login."""
+        with client.application.app_context():
+            cover = FileStorage(stream=BytesIO(b"fake-jpg-content"), filename="cover.jpg")
+            up = file_service.upload_file(cover, sample_content.id, upload_type="cover")
+            assert up["success"] is True
+            sample_content.cover_path = up["file_path"]
+            _db.session.commit()
+            media_path = sample_content.cover_path
+
+        resp = client.get(f"/media/{media_path}", follow_redirects=False)
+        assert resp.status_code == 302
+
+    def test_media_draft_blocked_for_non_owner(self, client, login_as, sample_users, sample_content):
+        """A non-owner authenticated user cannot access draft media."""
+        with client.application.app_context():
+            cover = FileStorage(stream=BytesIO(b"fake-jpg-content"), filename="draft-cover.jpg")
+            up = file_service.upload_file(cover, sample_content.id, upload_type="cover")
+            assert up["success"] is True
+            sample_content.cover_path = up["file_path"]
+            sample_content.status = "draft"
+            _db.session.commit()
+            media_path = sample_content.cover_path
+
+        login_as("testcustomer", "TestPass123!")
+        resp = client.get(f"/media/{media_path}")
+        assert resp.status_code == 403
+
+    def test_media_draft_allowed_for_owner(self, client, login_as, sample_content):
+        """Content owner can access their draft media."""
+        with client.application.app_context():
+            cover = FileStorage(stream=BytesIO(b"fake-jpg-content"), filename="owner-cover.jpg")
+            up = file_service.upload_file(cover, sample_content.id, upload_type="cover")
+            assert up["success"] is True
+            sample_content.cover_path = up["file_path"]
+            sample_content.status = "draft"
+            _db.session.commit()
+            media_path = sample_content.cover_path
+
+        login_as("editor1", "TestPass123!")
+        resp = client.get(f"/media/{media_path}")
+        assert resp.status_code == 200
+
+    def test_media_published_allowed_for_authenticated_user(self, client, login_as, sample_users, sample_content):
+        """Published content media is available to authenticated users."""
+        with client.application.app_context():
+            cover = FileStorage(stream=BytesIO(b"fake-jpg-content"), filename="public-cover.jpg")
+            up = file_service.upload_file(cover, sample_content.id, upload_type="cover")
+            assert up["success"] is True
+            sample_content.cover_path = up["file_path"]
+            sample_content.status = "published"
+            _db.session.commit()
+            media_path = sample_content.cover_path
+
+        login_as("testcustomer", "TestPass123!")
+        resp = client.get(f"/media/{media_path}")
+        assert resp.status_code == 200
 
 
 # ── Editor access control ─────────────────────────────────────────────────────
@@ -186,6 +249,73 @@ class TestSaveContent:
         assert resp.status_code == 200
         assert "HX-Redirect" in resp.headers
 
+    def test_editor_cannot_forge_published_status(self, client, login_as, editor_user):
+        """Editor posting status=published via save is forced to draft."""
+        login_as("editor1", "TestPass123!")
+        resp = client.post("/content/editor/save", data={
+            "title": "Sneaky Publish Attempt",
+            "content_type": "article",
+            "body": "Trying to bypass the editorial workflow",
+            "body_format": "markdown",
+            "status": "published",
+        })
+        assert resp.status_code in (200, 302)
+        with client.application.app_context():
+            content = Content.query.filter_by(title="Sneaky Publish Attempt").first()
+            assert content is not None
+            assert content.status == "draft"
+
+    def test_editor_cannot_forge_in_review_status(self, client, login_as, editor_user):
+        """Editor posting status=in_review via save is forced to draft."""
+        login_as("editor1", "TestPass123!")
+        resp = client.post("/content/editor/save", data={
+            "title": "Sneaky Review Attempt",
+            "content_type": "article",
+            "body": "Trying to skip submit-for-review endpoint",
+            "body_format": "markdown",
+            "status": "in_review",
+        })
+        assert resp.status_code in (200, 302)
+        with client.application.app_context():
+            content = Content.query.filter_by(title="Sneaky Review Attempt").first()
+            assert content is not None
+            assert content.status == "draft"
+
+
+# ── Cross-editor content isolation ────────────────────────────────────────────
+
+class TestCrossEditorIsolation:
+    def test_other_editor_cannot_view_draft(self, client, login_as, db, sample_content):
+        """Editor B viewing editor A's draft content gets 404."""
+        from app.models.user import User
+        from app.services.auth_service import hash_password
+        with client.application.app_context():
+            other = User(
+                username="editor2_isolation",
+                email="editor2_isolation@test.com",
+                role="editor",
+                credit_score=100,
+                password_hash=hash_password("TestPass123!"),
+            )
+            _db.session.add(other)
+            _db.session.commit()
+
+        login_as("editor2_isolation", "TestPass123!")
+        resp = client.get(f"/content/{sample_content.id}")
+        assert resp.status_code == 404
+
+    def test_admin_can_view_any_draft(self, client, login_as, db, sample_users, sample_content):
+        """Admin can view any editor's draft content."""
+        login_as("testadmin", "TestPass123!")
+        resp = client.get(f"/content/{sample_content.id}")
+        assert resp.status_code == 200
+
+    def test_author_can_view_own_draft(self, client, login_as, db, editor_user, sample_content):
+        """Content author can view their own draft content."""
+        login_as("editor1", "TestPass123!")
+        resp = client.get(f"/content/{sample_content.id}")
+        assert resp.status_code == 200
+
 
 # ── Workflow endpoints ─────────────────────────────────────────────────────────
 
@@ -296,6 +426,34 @@ class TestVersionHistory:
         )
         # Should redirect or return HX-Redirect
         assert resp.status_code in (200, 302)
+
+    def test_rollback_other_editor_forbidden(self, client, login_as, sample_content):
+        """A different editor cannot rollback content they do not own."""
+        from app.models.user import User
+        from app.services.auth_service import hash_password
+
+        with client.application.app_context():
+            other_editor = User(
+                username="api_rollback_other_editor",
+                email="api_rollback_other_editor@test.com",
+                role="editor",
+                credit_score=100,
+                password_hash=hash_password("TestPass123!"),
+            )
+            _db.session.add(other_editor)
+            _db.session.commit()
+
+            v1 = ContentVersion.query.filter_by(
+                content_id=sample_content.id, version_number=1
+            ).first()
+            v1_id = v1.id
+
+        login_as("api_rollback_other_editor", "TestPass123!")
+        resp = client.post(
+            f"/content/{sample_content.id}/rollback/{v1_id}",
+            follow_redirects=False,
+        )
+        assert resp.status_code == 403
 
 
 # ── Markdown preview ──────────────────────────────────────────────────────────

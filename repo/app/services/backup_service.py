@@ -59,6 +59,41 @@ def _fmt_size(size_bytes: int | None) -> str:
     return f"{size_bytes:.1f} TB"
 
 
+def _validation_copy_path(backup_id: int) -> str:
+    return os.path.join(_backup_dir(), f"validation_restore_{backup_id}.sqlite")
+
+
+def _validation_files_dir(backup_id: int) -> str:
+    return os.path.join(_backup_dir(), f"validation_files_{backup_id}")
+
+
+def _upload_dir() -> str:
+    return os.path.abspath(current_app.config.get("UPLOAD_FOLDER", ""))
+
+
+def _zip_directory(src_dir: str, dest_zip_path: str, root_name: str | None = None) -> None:
+    with zipfile.ZipFile(dest_zip_path, "w", zipfile.ZIP_DEFLATED) as zf:
+        for root_dir, _dirs, files in os.walk(src_dir):
+            for fname in files:
+                full_path = os.path.join(root_dir, fname)
+                rel = os.path.relpath(full_path, src_dir)
+                arcname = os.path.join(root_name, rel) if root_name else rel
+                zf.write(full_path, arcname.replace("\\", "/"))
+
+
+def _validation_files_source_root(backup_id: int) -> str:
+    """
+    Return the root directory to promote from validation_files_<id>.
+    Supports ZIPs that either include or omit the top-level uploads directory.
+    """
+    validation_dir = _validation_files_dir(backup_id)
+    upload_dir = _upload_dir()
+    expected_top = os.path.join(validation_dir, os.path.basename(upload_dir.rstrip("/")))
+    if os.path.isdir(expected_top):
+        return expected_top
+    return validation_dir
+
+
 def _backup_to_dict(b: Backup) -> dict:
     return {
         "id": b.id,
@@ -214,27 +249,60 @@ def restore_backup(backup_id: int) -> dict:
     if backup.backup_type == "database":
         if not backup.file_path or not os.path.exists(backup.file_path):
             return {"success": False, "reason": "Backup file does not exist on disk."}
+    elif backup.backup_type == "files":
+        if not backup.file_path or not os.path.exists(backup.file_path):
+            return {"success": False, "reason": "Backup file does not exist on disk."}
+        if not zipfile.is_zipfile(backup.file_path):
+            return {"success": False, "reason": "File backup is not a valid ZIP archive."}
+    else:
+        return {"success": False, "reason": f"Unsupported backup type '{backup.backup_type}'."}
 
-    backup.status = "restored"
+    if backup.backup_type == "database":
+        validation_path = _validation_copy_path(backup_id)
+        try:
+            shutil.copy2(backup.file_path, validation_path)
+        except OSError as exc:
+            logger.error("Validation-copy restore failed for backup #%d: %s", backup_id, exc)
+            return {"success": False, "reason": f"Failed to create validation copy: {exc}"}
+        backup.status = "validated"
+    else:  # files
+        validation_dir = _validation_files_dir(backup_id)
+        try:
+            if os.path.exists(validation_dir):
+                shutil.rmtree(validation_dir)
+            os.makedirs(validation_dir, exist_ok=True)
+            with zipfile.ZipFile(backup.file_path, "r") as zf:
+                zf.extractall(validation_dir)
+        except (OSError, zipfile.BadZipFile) as exc:
+            logger.error("Validation-copy restore failed for file backup #%d: %s", backup_id, exc)
+            return {"success": False, "reason": f"Failed to extract validation copy: {exc}"}
+        backup.status = "validated"
     db.session.commit()
 
     logger.info("Backup #%d selected for restore: %s", backup_id, backup.file_path)
-    return {
+    response = {
         "success": True,
         "backup_id": backup_id,
         "file_path": backup.file_path,
         "backup_type": backup.backup_type,
     }
+    if backup.backup_type == "database":
+        response["validation_copy_path"] = _validation_copy_path(backup_id)
+        response["message"] = "Validation copy created. Review it, then promote to apply."
+    if backup.backup_type == "files":
+        response["validation_copy_path"] = _validation_files_dir(backup_id)
+        response["message"] = "Validation file copy extracted. Review it, then promote to apply."
+    return response
 
 
 # ── FUNCTION 5: promote_restore ──────────────────────────────────────────────
 
 def promote_restore(backup_id: int) -> dict:
     """
-    Apply a database backup by copying it over the live database file.
+    Apply a validated backup over the live runtime data.
 
-    WARNING: This replaces the running database. All in-flight transactions are
-    lost. Only valid for SQLite file databases; no-op for in-memory DBs.
+    For database backups, this replaces the live SQLite file.
+    For file backups, this swaps UPLOAD_FOLDER contents from the validated copy.
 
     Returns:
         {"success": True, "message": str}
@@ -244,41 +312,84 @@ def promote_restore(backup_id: int) -> dict:
     if not backup:
         return {"success": False, "reason": f"Backup #{backup_id} not found."}
 
-    if backup.backup_type != "database":
-        return {"success": False, "reason": "promote_restore only supports database backups."}
+    if backup.status != "validated":
+        return {"success": False, "reason": "Backup must be restored to a validation copy before promotion."}
 
-    if not backup.file_path or not os.path.exists(backup.file_path):
-        return {"success": False, "reason": "Backup file does not exist on disk."}
+    if backup.backup_type == "database":
+        if not backup.file_path or not os.path.exists(backup.file_path):
+            return {"success": False, "reason": "Backup file does not exist on disk."}
 
-    db_path = _db_file_path()
-    if not db_path:
-        return {"success": False, "reason": "Cannot promote: running on in-memory SQLite."}
+        db_path = _db_file_path()
+        if not db_path:
+            return {"success": False, "reason": "Cannot promote: running on in-memory SQLite."}
 
-    # Close all SQLAlchemy connections before overwriting
-    try:
-        db.engine.dispose()
-    except Exception as exc:
-        logger.warning("promote_restore: engine dispose failed: %s", exc)
+        # Close all SQLAlchemy connections before overwriting
+        try:
+            db.engine.dispose()
+        except Exception as exc:
+            logger.warning("promote_restore: engine dispose failed: %s", exc)
 
-    try:
-        # Create a safety copy of current DB before overwriting
-        ts = datetime.utcnow().strftime(_TS_FMT)
-        safety_path = os.path.join(_backup_dir(), f"pre_restore_safety_{ts}.sqlite")
-        if os.path.exists(db_path):
-            shutil.copy2(db_path, safety_path)
+        try:
+            # Create a safety copy of current DB before overwriting
+            ts = datetime.utcnow().strftime(_TS_FMT)
+            safety_path = os.path.join(_backup_dir(), f"pre_restore_safety_{ts}.sqlite")
+            if os.path.exists(db_path):
+                shutil.copy2(db_path, safety_path)
 
-        shutil.copy2(backup.file_path, db_path)
-    except OSError as exc:
-        logger.error("promote_restore failed: %s", exc)
-        return {"success": False, "reason": f"Failed to copy backup: {exc}"}
+            validation_path = _validation_copy_path(backup_id)
+            if not os.path.exists(validation_path):
+                return {"success": False, "reason": "Validation copy not found. Run restore first."}
 
-    message = (
-        f"Database restored from backup #{backup_id}. "
-        f"Pre-restore safety copy saved to {os.path.basename(safety_path)}. "
-        "Restart the application to reconnect."
-    )
-    logger.warning("promote_restore: %s", message)
-    return {"success": True, "message": message}
+            shutil.copy2(validation_path, db_path)
+        except OSError as exc:
+            logger.error("promote_restore failed: %s", exc)
+            return {"success": False, "reason": f"Failed to copy backup: {exc}"}
+
+        backup.status = "restored"
+        db.session.commit()
+
+        message = (
+            f"Database restored from backup #{backup_id}. "
+            f"Pre-restore safety copy saved to {os.path.basename(safety_path)}. "
+            "Restart the application to reconnect."
+        )
+        logger.warning("promote_restore: %s", message)
+        return {"success": True, "message": message}
+
+    if backup.backup_type == "files":
+        validation_dir = _validation_files_dir(backup_id)
+        if not os.path.isdir(validation_dir):
+            return {"success": False, "reason": "Validation file copy not found. Run restore first."}
+
+        source_root = _validation_files_source_root(backup_id)
+        upload_dir = _upload_dir()
+        if not upload_dir:
+            return {"success": False, "reason": "UPLOAD_FOLDER is not configured."}
+
+        try:
+            ts = datetime.utcnow().strftime(_TS_FMT)
+            safety_zip = os.path.join(_backup_dir(), f"pre_restore_uploads_{ts}.zip")
+            if os.path.isdir(upload_dir):
+                _zip_directory(upload_dir, safety_zip, root_name=os.path.basename(upload_dir.rstrip("/")))
+
+            if os.path.isdir(upload_dir):
+                shutil.rmtree(upload_dir)
+            shutil.copytree(source_root, upload_dir)
+        except (OSError, shutil.Error) as exc:
+            logger.error("promote_restore files failed: %s", exc)
+            return {"success": False, "reason": f"Failed to promote file backup: {exc}"}
+
+        backup.status = "restored"
+        db.session.commit()
+
+        message = (
+            f"Files restored from backup #{backup_id}. "
+            f"Pre-restore safety copy saved to {os.path.basename(safety_zip)}."
+        )
+        logger.warning("promote_restore files: %s", message)
+        return {"success": True, "message": message}
+
+    return {"success": False, "reason": f"Unsupported backup type '{backup.backup_type}'."}
 
 
 # ── helpers for CLI ──────────────────────────────────────────────────────────

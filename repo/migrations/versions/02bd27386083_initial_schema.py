@@ -264,7 +264,7 @@ def upgrade():
     sa.ForeignKeyConstraint(['reservation_id'], ['reservations.id'], ),
     sa.ForeignKeyConstraint(['user_id'], ['users.id'], ),
     sa.PrimaryKeyConstraint('id'),
-    sa.UniqueConstraint('reservation_id')
+    sa.UniqueConstraint('reservation_id', 'user_id', name='uq_review_reservation_user')
     )
     op.create_table('appeals',
     sa.Column('id', sa.Integer(), nullable=False),

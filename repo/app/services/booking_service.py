@@ -380,19 +380,25 @@ def cancel_reservation(reservation_id: int, user_id: int) -> dict:
             ),
         }
 
-    # Step 4 — breach detection (< 12 h before start → late-cancel penalty)
+    # Step 4 — session-start boundary: block cancellations once session has begun
     session = StudioSession.query.get(reservation.session_id)
-    hours_until_start = (
-        session.start_time - datetime.utcnow()
-    ).total_seconds() / 3600
+    now = datetime.utcnow()
+    if now >= session.start_time:
+        return {
+            "success": False,
+            "reason": "Cannot cancel after the session has started.",
+        }
+
+    # Step 5 — breach detection (< 12 h before start → late-cancel penalty)
+    hours_until_start = (session.start_time - now).total_seconds() / 3600
     breach = hours_until_start < 12
 
-    # Step 5 — update reservation
+    # Step 6 — update reservation
     reservation.status = "canceled"
     reservation.breach_flag = breach
     reservation.updated_at = datetime.utcnow()
 
-    # Step 6 — record credit penalty for breach
+    # Step 7 — record credit penalty for breach
     if breach:
         credit_entry = CreditHistory(
             user_id=reservation.user_id,
@@ -411,7 +417,7 @@ def cancel_reservation(reservation_id: int, user_id: int) -> dict:
             reservation.user_id, reservation_id, hours_until_start,
         )
 
-    # Step 7 — promote waitlist
+    # Step 8 — promote waitlist
     promote_waitlist(reservation.session_id)
 
     db.session.commit()
@@ -523,14 +529,20 @@ def reschedule_reservation(
                 ),
             }
 
-    # Step 4 — breach detection (< 12 h before start → late-cancel penalty)
+    # Step 4 — session-start boundary: block reschedules once original session has begun
     old_session = StudioSession.query.get(old_res.session_id)
-    hours_until_start = (
-        old_session.start_time - datetime.utcnow()
-    ).total_seconds() / 3600
+    now = datetime.utcnow()
+    if now >= old_session.start_time:
+        return {
+            "success": False,
+            "reason": "Cannot reschedule after the original session has started.",
+        }
+
+    # Step 5 — breach detection (< 12 h before start → late-cancel penalty)
+    hours_until_start = (old_session.start_time - now).total_seconds() / 3600
     breach = hours_until_start < 12
 
-    # Step 5 — mark old reservation as rescheduled
+    # Step 6 — mark old reservation as rescheduled
     old_res.status = "rescheduled"
     old_res.breach_flag = breach
     old_res.updated_at = datetime.utcnow()
@@ -552,7 +564,7 @@ def reschedule_reservation(
             old_res.user_id, reservation_id,
         )
 
-    # Step 6 — create new confirmed reservation
+    # Step 7 — create new confirmed reservation
     new_res = Reservation(
         user_id=old_res.user_id,
         session_id=new_session_id,
@@ -561,7 +573,7 @@ def reschedule_reservation(
     )
     db.session.add(new_res)
 
-    # Step 7 — promote waitlist on old session
+    # Step 8 — promote waitlist on old session
     promote_waitlist(old_res.session_id)
 
     db.session.commit()
@@ -608,6 +620,15 @@ def join_waitlist(user_id: int, session_id: int) -> dict:
     session = StudioSession.query.get(session_id)
     if session is None or not session.is_active:
         return {"success": False, "reason": "Session not found or no longer available."}
+
+    booked_count = Reservation.query.filter_by(
+        session_id=session_id, status="confirmed"
+    ).count()
+    if booked_count < session.capacity:
+        return {
+            "success": False,
+            "reason": "This session still has available spots. Please book directly instead of joining the waitlist.",
+        }
 
     existing = Waitlist.query.filter_by(
         user_id=user_id, session_id=session_id, is_active=True

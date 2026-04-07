@@ -24,7 +24,7 @@ A full-stack wellness studio management platform built with **Flask 3**, **HTMX 
 | Area | Capabilities |
 |---|---|
 | **Booking** | Browse schedule, reserve / cancel / reschedule sessions, waitlist with auto-promotion |
-| **Credit** | Score-based system (0–200); on-time +5, late-cancel −10, no-show −20; nightly recalc |
+| **Credit** | Score-based system (0–200); on-time +2, late-cancel −1, no-show −3, dispute upheld −5; nightly recalc |
 | **Reviews** | Post-session reviews (1–5 stars), dispute appeals with 5-business-day deadline |
 | **Staff** | Roster management, check-in, no-show marking, session CRUD, resource conflict detection |
 | **Content** | Draft → Review → Published workflow, version history, rollback, content filters |
@@ -265,10 +265,10 @@ python3 -m pytest unit_tests/ API_tests/ integration_tests/ -v
 
 | Suite | Count | What it covers |
 |---|---|---|
-| `unit_tests/` | ~310 | Service functions, business logic, helpers |
-| `API_tests/` | ~36 | Blueprint HTTP responses, auth, HTMX partials |
+| `unit_tests/` | 193 | Service functions, business logic, helpers |
+| `API_tests/` | 219 | Blueprint HTTP responses, auth, HTMX partials |
 | `integration_tests/` | 25 | End-to-end user flows |
-| **Total** | **371** | |
+| **Total** | **437** | |
 
 ---
 

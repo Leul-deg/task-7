@@ -16,7 +16,8 @@ API-level tests for admin ops routes:
 import pytest
 
 from app.extensions import db as _db
-from app.models.ops import AlertThreshold, FeatureFlag
+from app.models.ops import AlertThreshold, Backup, FeatureFlag
+from app.services import backup_service
 
 
 # ── helpers ────────────────────────────────────────────────────────────────────
@@ -181,3 +182,70 @@ class TestBackupsAPI:
         assert resp.status_code == 200
         # Should not fail — just verify it completes successfully
         assert b"Retention enforced" in resp.data
+
+    def test_restore_files_backup_marks_validated(self, client, db, sample_users, tmp_path, monkeypatch):
+        """POST restore on a completed files backup should mark it validated."""
+        _login(client, "testadmin")
+        backups_dir = tmp_path / "backups"
+        backups_dir.mkdir(parents=True, exist_ok=True)
+        monkeypatch.setattr(backup_service, "_backup_dir", lambda: str(backups_dir))
+
+        zip_path = backups_dir / "files_backup_api.zip"
+        import zipfile
+        with zipfile.ZipFile(zip_path, "w", zipfile.ZIP_DEFLATED) as zf:
+            zf.writestr("uploads/from_api.txt", "restored")
+
+        b = Backup(
+            backup_type="files",
+            file_path=str(zip_path),
+            file_size=zip_path.stat().st_size,
+            status="completed",
+        )
+        _db.session.add(b)
+        _db.session.commit()
+
+        resp = client.post(
+            f"/admin/backups/{b.id}/restore",
+            data={"promote": "0"},
+            headers={"HX-Request": "true"},
+        )
+        assert resp.status_code == 200
+        _db.session.refresh(b)
+        assert b.status == "validated"
+
+    def test_promote_validated_files_backup(self, client, db, sample_users, tmp_path, monkeypatch):
+        """POST restore with promote=1 should restore validated file backup to uploads."""
+        _login(client, "testadmin")
+        backups_dir = tmp_path / "backups"
+        backups_dir.mkdir(parents=True, exist_ok=True)
+        uploads_dir = tmp_path / "uploads"
+        uploads_dir.mkdir(parents=True, exist_ok=True)
+        (uploads_dir / "old.txt").write_text("old", encoding="utf-8")
+
+        client.application.config["UPLOAD_FOLDER"] = str(uploads_dir)
+        monkeypatch.setattr(backup_service, "_backup_dir", lambda: str(backups_dir))
+
+        # Create a validated files backup record and matching validation directory.
+        b = Backup(
+            backup_type="files",
+            file_path=str(backups_dir / "files_backup_promote_api.zip"),
+            file_size=0,
+            status="validated",
+        )
+        _db.session.add(b)
+        _db.session.commit()
+
+        validation_dir = backups_dir / f"validation_files_{b.id}" / uploads_dir.name
+        validation_dir.mkdir(parents=True, exist_ok=True)
+        (validation_dir / "new.txt").write_text("new", encoding="utf-8")
+
+        resp = client.post(
+            f"/admin/backups/{b.id}/restore",
+            data={"promote": "1"},
+            headers={"HX-Request": "true"},
+        )
+        assert resp.status_code == 200
+        assert (uploads_dir / "new.txt").exists()
+        assert not (uploads_dir / "old.txt").exists()
+        _db.session.refresh(b)
+        assert b.status == "restored"

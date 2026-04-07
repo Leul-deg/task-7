@@ -194,6 +194,42 @@ class TestFileAppealAPI:
         )
         assert resp.status_code in (302, 401)
 
+    def test_non_participant_appeal_rejected(self, client, db, completed_reservation, sample_users):
+        """A user who is not a session participant cannot file an appeal."""
+        from app.models.user import User
+        from app.services.auth_service import hash_password
+        with client.application.app_context():
+            bystander = User(
+                username="bystander",
+                email="bystander@test.com",
+                role="customer",
+                credit_score=100,
+                password_hash=hash_password("TestPass123!"),
+            )
+            db.session.add(bystander)
+            db.session.commit()
+
+        res = completed_reservation["reservation"]
+        review = _make_review(db, res.id, sample_users["customer"].id)
+        _login(client, "bystander")
+        resp = client.post(
+            f"/reviews/{review.id}/appeal",
+            data={"reason": "I have nothing to do with this session but want to dispute."},
+        )
+        assert resp.status_code == 400
+        assert b"participant" in resp.data.lower() or b"Only session" in resp.data
+
+    def test_instructor_can_file_appeal(self, client, db, completed_reservation, sample_users):
+        """The session instructor (a valid participant) can file an appeal."""
+        res = completed_reservation["reservation"]
+        review = _make_review(db, res.id, sample_users["customer"].id)
+        _login(client, "teststaff")
+        resp = client.post(
+            f"/reviews/{review.id}/appeal",
+            data={"reason": "This review makes false claims that are harmful to my reputation."},
+        )
+        assert resp.status_code == 201
+
 
 # ── TestMyReviews ──────────────────────────────────────────────────────────────
 

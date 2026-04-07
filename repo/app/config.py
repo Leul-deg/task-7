@@ -8,6 +8,7 @@ class Config:
     SECRET_KEY = os.environ.get("SECRET_KEY", "dev-secret-change-in-production")
     SQLALCHEMY_TRACK_MODIFICATIONS = False
     WTF_CSRF_ENABLED = True
+    SCHEMA_VERSION = os.environ.get("SCHEMA_VERSION", "1")
 
     # Session — 8 hours of inactivity
     PERMANENT_SESSION_LIFETIME = timedelta(hours=8)

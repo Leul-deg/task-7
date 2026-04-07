@@ -19,7 +19,7 @@
   <!-- Cover image / gradient placeholder -->
   <a href="{{ url_for('content.view', content_id=item.id) }}" class="block relative">
     {% if item.cover_url %}
-    <img src="{{ item.cover_url }}" alt="{{ item.title }}"
+    <img src="{{ url_for('media_file', storage_path=item.cover_url) }}" alt="{{ item.title }}"
          class="w-full h-44 object-cover" />
     {% else %}
     <div class="w-full h-44 bg-gradient-to-br {{ type_gradients.get(item.content_type, 'from-stone-300 to-stone-400') }} flex items-center justify-center">

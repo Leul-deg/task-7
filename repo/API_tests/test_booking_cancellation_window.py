@@ -164,3 +164,74 @@ class TestRescheduleWithin12Hours:
         ).first()
         assert entry is not None
         assert entry.points == -1
+
+
+# ── Cancel / reschedule after session start — rejected ─────────────────────────
+
+class TestCancelAfterStart:
+    """Cancellations and reschedules must be blocked once the session has started."""
+
+    @pytest.fixture
+    def started_session(self, db, sample_users, sample_room):
+        """A session that started 30 minutes ago."""
+        start = datetime.utcnow() - timedelta(minutes=30)
+        s = StudioSession(
+            title="Already Started Yoga",
+            instructor_id=sample_users["staff"].id,
+            room_id=sample_room.id,
+            start_time=start,
+            end_time=start + timedelta(hours=1),
+            capacity=15,
+            is_active=True,
+        )
+        db.session.add(s)
+        db.session.commit()
+        return s
+
+    @pytest.fixture
+    def started_reservation(self, db, sample_users, started_session):
+        """A confirmed reservation on the already-started session."""
+        res = Reservation(
+            user_id=sample_users["customer"].id,
+            session_id=started_session.id,
+            status="confirmed",
+        )
+        db.session.add(res)
+        db.session.commit()
+        return res
+
+    def test_cancel_after_start_rejected(self, client, sample_users, started_reservation):
+        """POST /booking/<id>/cancel after session start returns error."""
+        _login(client)
+        resp = client.post(f"/booking/{started_reservation.id}/cancel")
+        assert resp.status_code in (200, 400, 409)
+        assert b"started" in resp.data.lower()
+
+    def test_cancel_after_start_preserves_status(self, client, db, sample_users, started_reservation):
+        """Reservation status remains 'confirmed' when cancel is rejected."""
+        _login(client)
+        client.post(f"/booking/{started_reservation.id}/cancel")
+        db.session.refresh(started_reservation)
+        assert started_reservation.status == "confirmed"
+
+    def test_reschedule_after_start_rejected(self, client, db, sample_users,
+                                             started_reservation, future_session):
+        """POST /booking/<id>/reschedule after session start returns error."""
+        _login(client)
+        resp = client.post(
+            f"/booking/{started_reservation.id}/reschedule",
+            data={"new_session_id": str(future_session.id)},
+        )
+        assert resp.status_code in (200, 400, 409)
+        assert b"started" in resp.data.lower()
+
+    def test_reschedule_after_start_preserves_status(self, client, db, sample_users,
+                                                      started_reservation, future_session):
+        """Reservation status remains 'confirmed' when reschedule is rejected."""
+        _login(client)
+        client.post(
+            f"/booking/{started_reservation.id}/reschedule",
+            data={"new_session_id": str(future_session.id)},
+        )
+        db.session.refresh(started_reservation)
+        assert started_reservation.status == "confirmed"

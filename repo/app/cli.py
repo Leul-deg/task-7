@@ -191,9 +191,9 @@ def _seed_demo():
 
     # ── Credit history ────────────────────────────────────────────────────────
     _credit_map = {
-        "completed": ("on_time",     +5),
-        "canceled":  ("late_cancel", -10),
-        "no_show":   ("no_show",     -20),
+        "completed": ("on_time",      +2),
+        "canceled":  ("late_cancel",  -1),
+        "no_show":   ("no_show",      -3),
     }
     for res in past_reservations:
         if res.status in _credit_map:

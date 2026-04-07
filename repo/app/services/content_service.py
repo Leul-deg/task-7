@@ -152,14 +152,19 @@ def get_published_content(
 # FUNCTION 2
 # ---------------------------------------------------------------------------
 
-def get_content_detail(content_id: int, user_role: str = None) -> dict | None:
+def get_content_detail(content_id: int, user_role: str = None, user_id: int = None) -> dict | None:
     """Get full content for display, rendering markdown to HTML if needed."""
     content = Content.query.get(content_id)
     if not content:
         return None
 
-    if content.status != "published" and user_role not in ("editor", "admin"):
-        return None
+    if content.status != "published":
+        if user_role == "admin":
+            pass
+        elif user_role == "editor" and user_id and content.author_id == user_id:
+            pass
+        else:
+            return None
 
     # Render body
     if content.body_format == "markdown":
@@ -248,13 +253,19 @@ def save_content(content_id: int | None, data: dict, author_id: int) -> dict:
         tags = [t.strip() for t in tags.split(",") if t.strip()]
     tags_json = json.dumps(tags)
 
+    # Enforce status transitions: only admins may set arbitrary statuses via
+    # save.  Non-admin editors always save as "draft"; they must use the
+    # dedicated submit_for_review / publish / reject endpoints for transitions.
+    author = User.query.get(author_id)
+    if not author or author.role != "admin":
+        data["status"] = "draft"
+
     if content_id is not None:
         # Step 4: Update existing content.
         content = Content.query.get(content_id)
         if not content:
             return {"success": False, "reason": "Content not found."}
         if content.author_id != author_id:
-            author = User.query.get(author_id)
             if not author or author.role != "admin":
                 return {"success": False, "reason": "You can only edit your own content."}
 
@@ -284,13 +295,13 @@ def save_content(content_id: int | None, data: dict, author_id: int) -> dict:
 
         logger.info("Updated content id=%d to version %d", content.id, content.current_version)
     else:
-        # Step 5: Create new content.
+        # Step 5: Create new content (status already sanitised above).
         content = Content(
             title=data["title"],
             content_type=data.get("content_type", "article"),
             body=data.get("body", ""),
             body_format=data.get("body_format", "markdown"),
-            status=data.get("status", "draft"),
+            status=data["status"],
             author_id=author_id,
             category=data.get("category"),
             tags=tags_json,
@@ -480,6 +491,12 @@ def rollback_to_version(content_id: int, version_id: int, user_id: int) -> dict:
     content = Content.query.get(content_id)
     if not content:
         return {"success": False, "reason": "Content not found."}
+
+    actor = User.query.get(user_id)
+    if not actor:
+        return {"success": False, "reason": "User not found."}
+    if content.author_id != user_id and actor.role != "admin":
+        return {"success": False, "reason": "You can only rollback your own content."}
 
     target = ContentVersion.query.get(version_id)
     if not target:

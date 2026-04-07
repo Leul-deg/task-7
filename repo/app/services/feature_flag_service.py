@@ -15,6 +15,7 @@ from flask import Flask
 
 from app.extensions import db
 from app.models.ops import FeatureFlag
+from app.models.user import User
 
 logger = logging.getLogger(__name__)
 
@@ -39,6 +40,23 @@ def _flag_to_dict(flag: FeatureFlag) -> dict:
         "created_at": flag.created_at.strftime("%m/%d/%Y %I:%M %p") if flag.created_at else None,
         "updated_at": flag.updated_at.strftime("%m/%d/%Y %I:%M %p") if flag.updated_at else None,
     }
+
+
+def _validate_staff_canary_ids(canary_staff_ids: list[int] | None) -> tuple[bool, str]:
+    ids = [int(i) for i in (canary_staff_ids or [])]
+    if not ids:
+        return True, ""
+
+    staff_ids = {
+        row[0]
+        for row in db.session.query(User.id)
+        .filter(User.id.in_(ids), User.role == "staff")
+        .all()
+    }
+    invalid = sorted(i for i in ids if i not in staff_ids)
+    if invalid:
+        return False, f"Canary IDs must belong to staff users only. Invalid IDs: {invalid}"
+    return True, ""
 
 
 # ── FUNCTION 1: is_feature_enabled ───────────────────────────────────────────
@@ -95,6 +113,10 @@ def create_flag(
     if FeatureFlag.query.filter_by(name=name).first():
         return {"success": False, "reason": f"Flag '{name}' already exists."}
 
+    ok, reason = _validate_staff_canary_ids(canary_staff_ids)
+    if not ok:
+        return {"success": False, "reason": reason}
+
     flag = FeatureFlag(
         name=name,
         description=description,
@@ -132,6 +154,9 @@ def update_flag(
     if is_enabled is not None:
         flag.is_enabled = bool(is_enabled)
     if canary_staff_ids is not None:
+        ok, reason = _validate_staff_canary_ids(canary_staff_ids)
+        if not ok:
+            return {"success": False, "reason": reason}
         flag.canary_staff_ids = json.dumps([int(i) for i in canary_staff_ids])
     if description is not None:
         flag.description = description

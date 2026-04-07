@@ -2,8 +2,8 @@ Required Document Description: Business Logic Questions Log:
 
 Credit Score Point Values
 Question: Prompt says "e.g., on-time +2, late cancel −1, no-show −3, upheld dispute −5" — is this exact or example guidance?
-My Understanding: The "e.g." prefix signals these are illustrative. The actual values should be tuned for the studio's risk tolerance.
-Solution: Implemented with adjusted values (+5 / −10 / −20 / +10) that create sharper differentiation between good and bad behavior. Base score 100, range 0–200.
+My Understanding: Treat these as the canonical business rule values to keep scoring predictable and auditable.
+Solution: Implemented as on-time +2, late-cancel −1, no-show −3, upheld dispute −5. Base score 100, range 0–200.
 
 Credit Threshold for Booking Restriction
 Question: Prompt says "below a threshold score" requires staff approval but doesn't specify the threshold.

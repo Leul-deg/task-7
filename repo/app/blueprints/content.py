@@ -116,7 +116,8 @@ def browse():
 def view(content_id: int):
     """GET /content/<id> — full content view."""
     user_role = current_user.role if current_user.is_authenticated else None
-    content = content_service.get_content_detail(content_id, user_role=user_role)
+    user_id = current_user.id if current_user.is_authenticated else None
+    content = content_service.get_content_detail(content_id, user_role=user_role, user_id=user_id)
     if content is None:
         abort(404)
     return render_template("content/view.html", content=content)
@@ -336,6 +337,10 @@ def history(content_id: int):
 @role_required("editor", "admin")
 def rollback(content_id: int, version_id: int):
     """POST /content/<id>/rollback/<version_id> — restore to a previous version."""
+    content = Content.query.get_or_404(content_id)
+    if content.author_id != current_user.id and current_user.role != "admin":
+        abort(403)
+
     result = content_service.rollback_to_version(content_id, version_id, current_user.id)
 
     if not result["success"]:

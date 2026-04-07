@@ -88,10 +88,10 @@ score = clamp(100 + Σ points_from_last_90_days, 0, 200)
 
 Event         Points
 ─────────────────────
-on_time        +5
-late_cancel   −10
-no_show       −20
-dispute_upheld +10
+on_time        +2
+late_cancel    −1
+no_show        −3
+dispute_upheld −5
 ```
 
 Status thresholds:

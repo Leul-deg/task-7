@@ -24,7 +24,7 @@ from flask import current_app
 from app.extensions import db
 from app.models.analytics import CreditHistory
 from app.models.review import Appeal, Review, ReviewImage
-from app.models.studio import Reservation
+from app.models.studio import Reservation, StudioSession
 from app.models.user import User
 from app.services.content_filter_service import filter_content
 
@@ -229,12 +229,13 @@ def create_review(
 
         for file_content, ext, fingerprint in validated_images:
             safe_name = f"{uuid.uuid4().hex}.{ext}"
-            file_path = os.path.join(upload_dir, safe_name)
-            with open(file_path, "wb") as f:
+            storage_path = os.path.join("reviews", str(review.id), safe_name).replace("\\", "/")
+            abs_path = os.path.join(upload_dir, safe_name)
+            with open(abs_path, "wb") as f:
                 f.write(file_content)
             img_record = ReviewImage(
                 review_id=review.id,
-                file_path=file_path,
+                file_path=storage_path,
                 file_size=len(file_content),
                 fingerprint=fingerprint,
             )
@@ -314,6 +315,22 @@ def file_appeal(review_id: int, user_id: int, reason: str) -> dict:
     if review.user_id == user_id:
         return {"success": False, "reason": "You cannot dispute your own review."}
 
+    reservation = review.reservation
+    if not reservation:
+        return {"success": False, "reason": "Associated reservation not found."}
+    session = reservation.session
+    is_participant = (
+        reservation.user_id == user_id
+        or (session and session.instructor_id == user_id)
+    )
+    filing_user = User.query.get(user_id)
+    is_admin = filing_user and filing_user.role == "admin"
+    if not is_participant and not is_admin:
+        return {
+            "success": False,
+            "reason": "Only session participants or admins can dispute a review.",
+        }
+
     existing = Appeal.query.filter_by(
         review_id=review_id, user_id=user_id, status="pending"
     ).first()
@@ -385,6 +402,12 @@ def resolve_appeal(
 
     now = datetime.utcnow()
     review = appeal.review
+
+    if now > appeal.deadline:
+        return {
+            "success": False,
+            "reason": "This appeal has passed the 5-business-day resolution window.",
+        }
 
     if decision == "upheld":
         appeal.status = "upheld"
@@ -506,7 +529,7 @@ def get_user_reviews(user_id: int) -> dict:
         .join(Reservation.session)
         .filter(
             Review.status == "active",
-            db.text(f"studio_sessions.instructor_id = {user_id}"),
+            StudioSession.instructor_id == user_id,
         )
         .order_by(Review.created_at.desc())
         .all()

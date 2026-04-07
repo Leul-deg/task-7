@@ -4,11 +4,13 @@ Unit tests for ops/observability services:
   app/services/feature_flag_service.py
   app/services/backup_service.py
 """
+import zipfile
+
 import pytest
 from datetime import datetime, timedelta
 
 from app.extensions import db
-from app.models.ops import AlertThreshold, FeatureFlag, LogEntry
+from app.models.ops import AlertThreshold, Backup, FeatureFlag, LogEntry
 from app.services import ops_service, feature_flag_service, backup_service
 
 
@@ -197,6 +199,15 @@ class TestFeatureFlagService:
             "canary_flag2", user=sample_users["customer"]
         ) is False
 
+    def test_canary_ids_must_be_staff_users(self, db, sample_users):
+        result = feature_flag_service.create_flag(
+            "staff_only_canary",
+            is_enabled=False,
+            canary_staff_ids=[sample_users["customer"].id],
+        )
+        assert result["success"] is False
+        assert "staff users only" in result["reason"].lower()
+
     def test_delete_flag(self, db):
         feature_flag_service.create_flag("to_delete")
         result = feature_flag_service.delete_flag("to_delete")
@@ -224,3 +235,73 @@ class TestBackupService:
         result = backup_service.enforce_retention(max_backups=7)
         assert result["deleted"] == 0
         assert result["kept"] == 0
+
+    def test_restore_file_backup_creates_validation_copy(self, app, db, tmp_path, monkeypatch):
+        """File backup restore extracts ZIP into validation_files_<id> and marks validated."""
+        with app.app_context():
+            backups_dir = tmp_path / "backups"
+            backups_dir.mkdir(parents=True, exist_ok=True)
+            uploads_dir = tmp_path / "uploads"
+            uploads_dir.mkdir(parents=True, exist_ok=True)
+            app.config["UPLOAD_FOLDER"] = str(uploads_dir)
+            monkeypatch.setattr(backup_service, "_backup_dir", lambda: str(backups_dir))
+
+            zip_path = backups_dir / "files_backup_test.zip"
+            with zipfile.ZipFile(zip_path, "w", zipfile.ZIP_DEFLATED) as zf:
+                zf.writestr(f"{uploads_dir.name}/restored.txt", "restored content")
+
+            record = Backup(
+                backup_type="files",
+                file_path=str(zip_path),
+                file_size=zip_path.stat().st_size,
+                status="completed",
+            )
+            db.session.add(record)
+            db.session.commit()
+
+            result = backup_service.restore_backup(record.id)
+            assert result["success"] is True
+            assert "validation_copy_path" in result
+            db.session.refresh(record)
+            assert record.status == "validated"
+
+            restored_file = backups_dir / f"validation_files_{record.id}" / uploads_dir.name / "restored.txt"
+            assert restored_file.exists()
+
+    def test_promote_file_backup_swaps_upload_directory(self, app, db, tmp_path, monkeypatch):
+        """Promote on validated file backup replaces live uploads from validation copy."""
+        with app.app_context():
+            backups_dir = tmp_path / "backups"
+            backups_dir.mkdir(parents=True, exist_ok=True)
+            uploads_dir = tmp_path / "uploads"
+            uploads_dir.mkdir(parents=True, exist_ok=True)
+            (uploads_dir / "old.txt").write_text("old content", encoding="utf-8")
+
+            app.config["UPLOAD_FOLDER"] = str(uploads_dir)
+            monkeypatch.setattr(backup_service, "_backup_dir", lambda: str(backups_dir))
+
+            zip_path = backups_dir / "files_backup_promote.zip"
+            with zipfile.ZipFile(zip_path, "w", zipfile.ZIP_DEFLATED) as zf:
+                zf.writestr(f"{uploads_dir.name}/new.txt", "new content")
+
+            record = Backup(
+                backup_type="files",
+                file_path=str(zip_path),
+                file_size=zip_path.stat().st_size,
+                status="completed",
+            )
+            db.session.add(record)
+            db.session.commit()
+
+            restore = backup_service.restore_backup(record.id)
+            assert restore["success"] is True
+
+            promoted = backup_service.promote_restore(record.id)
+            assert promoted["success"] is True
+            assert (uploads_dir / "new.txt").exists()
+            assert not (uploads_dir / "old.txt").exists()
+
+            db.session.refresh(record)
+            assert record.status == "restored"
+            safety_zips = list(backups_dir.glob("pre_restore_uploads_*.zip"))
+            assert len(safety_zips) >= 1

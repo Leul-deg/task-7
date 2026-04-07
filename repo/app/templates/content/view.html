@@ -40,7 +40,7 @@
       <!-- Cover image -->
       {% if content.cover_path %}
       <div class="mb-6 rounded-2xl overflow-hidden">
-        <img src="{{ content.cover_path }}" alt="{{ content.title }}" class="w-full object-cover max-h-80" />
+        <img src="{{ url_for('media_file', storage_path=content.cover_path) }}" alt="{{ content.title }}" class="w-full object-cover max-h-80" />
       </div>
       {% endif %}
 
@@ -70,7 +70,7 @@
                 {% endif %}
               </p>
             </div>
-            <a href="{{ att.file_path }}" download
+            <a href="{{ url_for('media_file', storage_path=att.file_path) }}" download
                class="shrink-0 text-xs font-medium text-brand-600 hover:text-brand-800 transition-colors">
               Download
             </a>

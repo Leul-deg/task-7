@@ -296,6 +296,31 @@ class TestRollback:
             )
             assert result["success"] is False
 
+    def test_rollback_other_editor_fails(self, app, db, sample_users, sample_content):
+        """A non-owner editor cannot rollback someone else's content."""
+        from app.models.user import User
+        from app.services.auth_service import hash_password
+
+        with app.app_context():
+            other_editor = User(
+                username="rollback_other_editor",
+                email="rollback_other_editor@test.com",
+                role="editor",
+                credit_score=100,
+                password_hash=hash_password("TestPass123!"),
+            )
+            _db.session.add(other_editor)
+            _db.session.commit()
+
+            version1 = ContentVersion.query.filter_by(
+                content_id=sample_content.id, version_number=1
+            ).first()
+            result = content_service.rollback_to_version(
+                sample_content.id, version1.id, other_editor.id
+            )
+            assert result["success"] is False
+            assert "own content" in result["reason"].lower()
+
 
 # ── test_content_filters ──────────────────────────────────────────────────────
 

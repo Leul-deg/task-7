@@ -6,7 +6,7 @@ class Review(db.Model):
     __tablename__ = "reviews"
 
     id = db.Column(db.Integer, primary_key=True)
-    reservation_id = db.Column(db.Integer, db.ForeignKey("reservations.id"), unique=True, nullable=False)
+    reservation_id = db.Column(db.Integer, db.ForeignKey("reservations.id"), nullable=False)
     user_id = db.Column(db.Integer, db.ForeignKey("users.id"), nullable=False)
     rating = db.Column(db.Integer, nullable=False)  # 1–5
     tags = db.Column(db.Text, default="[]")  # JSON list
@@ -17,13 +17,17 @@ class Review(db.Model):
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
     updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
 
-    reservation = db.relationship("Reservation", back_populates="review")
+    reservation = db.relationship("Reservation", back_populates="reviews")
     user = db.relationship("User", back_populates="reviews", foreign_keys=[user_id])
     images = db.relationship("ReviewImage", back_populates="review", lazy="dynamic")
     appeals = db.relationship("Appeal", back_populates="review", lazy="dynamic")
 
     def __repr__(self):
         return f"<Review reservation={self.reservation_id} rating={self.rating}>"
+
+    __table_args__ = (
+        db.UniqueConstraint("reservation_id", "user_id", name="uq_review_reservation_user"),
+    )
 
 
 class ReviewImage(db.Model):

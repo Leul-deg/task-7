@@ -61,7 +61,7 @@ class Reservation(db.Model):
     session = db.relationship("StudioSession", back_populates="reservations")
     original_reservation = db.relationship("Reservation", remote_side=[id])
     check_in = db.relationship("CheckIn", back_populates="reservation", uselist=False)
-    review = db.relationship("Review", back_populates="reservation", uselist=False)
+    reviews = db.relationship("Review", back_populates="reservation", lazy="dynamic")
 
     # Partial unique constraint: only one confirmed reservation per (user, session)
     __table_args__ = (

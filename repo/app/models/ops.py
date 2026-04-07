@@ -26,7 +26,7 @@ class Backup(db.Model):
     file_path = db.Column(db.String(500), nullable=False)
     file_size = db.Column(db.Integer, nullable=True)
     status = db.Column(db.String(20), nullable=False, default="completed")
-    # "completed", "failed", "restored"
+    # "completed", "failed", "validated", "restored"
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
 
     def __repr__(self):

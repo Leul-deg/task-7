@@ -28,7 +28,7 @@
   </td>
   <td class="px-4 py-3 text-stone-400 text-xs whitespace-nowrap">{{ b.created_at }}</td>
   <td class="px-4 py-3 text-right">
-    {% if b.status == 'completed' and b.backup_type == 'database' %}
+    {% if b.status == 'completed' %}
     <form hx-post="{{ url_for('admin.restore_backup', backup_id=b.id) }}"
           hx-target="#restore-result"
           hx-swap="innerHTML"
@@ -37,7 +37,20 @@
       <input type="hidden" name="promote" value="0" />
       <button type="submit"
               class="text-xs text-stone-500 hover:text-brand-700 transition-colors">
-        Mark Restore
+        Restore to Validation
+      </button>
+    </form>
+    {% elif b.status == 'validated' %}
+    <form hx-post="{{ url_for('admin.restore_backup', backup_id=b.id) }}"
+          hx-target="#restore-result"
+          hx-swap="innerHTML"
+          hx-confirm="Promote validated backup to live data? This is destructive."
+          class="inline">
+      <input type="hidden" name="csrf_token" value="{{ csrf_token() }}" />
+      <input type="hidden" name="promote" value="1" />
+      <button type="submit"
+              class="text-xs text-amber-700 hover:text-amber-900 transition-colors">
+        Promote
       </button>
     </form>
     {% else %}

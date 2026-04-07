@@ -51,11 +51,11 @@ Create a new customer account.
 |---|---|---|
 | `username` | string | Yes — 3–80 chars, alphanumeric + underscores |
 | `email` | string | Yes — valid email |
-| `password` | string | Yes — min 8 chars, mixed case + digit + symbol |
+| `password` | string | Yes — min 10 chars, at least one uppercase letter and one digit |
 | `confirm` | string | Yes — must match `password` |
 
 **Responses:**
-- `302` → `/auth/login` on success
+- `302` → `/schedule` on success
 - `200` → registration form with errors on failure
 
 ---

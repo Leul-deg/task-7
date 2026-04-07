@@ -20,7 +20,7 @@ SQLAlchemy models           — ORM over SQLite (or any SQL backend via DATABASE
 Database
 ```
 
-Each layer has a single responsibility. Blueprints never query the database directly; models never contain business logic.
+Each layer has a single responsibility. Blueprints delegate business logic to the service layer; lightweight read queries (e.g. category lookups, existence checks) may appear in blueprint code for convenience. Models never contain business logic.
 
 ---
 
@@ -88,10 +88,10 @@ score = clamp(100 + Σ points_from_last_90_days, 0, 200)
 
 Event         Points
 ─────────────────────
-on_time        +5
-late_cancel   −10
-no_show       −20
-dispute_upheld +10
+on_time        +2
+late_cancel    −1
+no_show        −3
+dispute_upheld −5
 ```
 
 Status thresholds:

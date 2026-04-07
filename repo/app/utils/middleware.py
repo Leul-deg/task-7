@@ -11,7 +11,7 @@ import logging
 import time
 import uuid
 
-from flask import Flask, g, request, jsonify
+from flask import Flask, g, jsonify, make_response, render_template, request
 
 from app.extensions import db
 
@@ -26,6 +26,21 @@ def _should_skip() -> bool:
     return any(path.startswith(p) for p in _SKIP_PREFIXES)
 
 
+def _upgrade_check_exempt(path: str) -> bool:
+    exempt_prefixes = (
+        "/static/",
+        "/favicon",
+        "/health",
+        "/auth/login",
+        "/auth/register",
+        "/auth/logout",
+        "/analytics/event",
+        "/analytics/heartbeat",
+        "/analytics/client-error",
+    )
+    return any(path.startswith(p) for p in exempt_prefixes)
+
+
 def register_middleware(app: Flask) -> None:
     """Attach before/after request hooks and the client-error endpoint."""
 
@@ -34,8 +49,49 @@ def register_middleware(app: Flask) -> None:
         g.request_id = str(uuid.uuid4())
         g.start_time = time.monotonic()
 
+        expected = str(app.config.get("SCHEMA_VERSION", "1"))
+        client_version = (
+            request.headers.get("X-Client-Schema-Version")
+            or request.cookies.get("client_schema_version")
+        )
+        if client_version and client_version != expected and not _upgrade_check_exempt(request.path or ""):
+            message = (
+                "This client is out of date after a system upgrade. "
+                "Please refresh to load the latest version."
+            )
+            if request.headers.get("HX-Request"):
+                response = make_response(
+                    render_template(
+                        "partials/error_fragment.html",
+                        code=426,
+                        message=message,
+                    ),
+                    426,
+                )
+                response.headers["HX-Refresh"] = "true"
+                return response
+            return (
+                render_template(
+                    "errors/426.html",
+                    message=message,
+                    expected_version=expected,
+                    client_version=client_version,
+                ),
+                426,
+            )
+
     @app.after_request
     def _after(response):
+        schema_version = str(app.config.get("SCHEMA_VERSION", "1"))
+        response.headers["X-Schema-Version"] = schema_version
+        response.set_cookie(
+            "client_schema_version",
+            schema_version,
+            max_age=60 * 60 * 24 * 365,
+            samesite="Lax",
+            secure=request.is_secure,
+        )
+
         if _should_skip():
             return response
 

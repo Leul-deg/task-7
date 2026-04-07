@@ -11,6 +11,23 @@ from app.models.content import ContentAttachment
 logger = logging.getLogger(__name__)
 
 
+def _to_storage_path(content_id: int, filename: str) -> str:
+    return os.path.join(str(content_id), filename).replace("\\", "/")
+
+
+def resolve_upload_path(storage_path: str) -> str:
+    """
+    Resolve a stored path to an absolute filesystem path under UPLOAD_FOLDER.
+    Backwards compatible with legacy absolute paths already in the database.
+    """
+    if not storage_path:
+        return ""
+    if os.path.isabs(storage_path):
+        return os.path.abspath(storage_path)
+    base = os.path.abspath(current_app.config["UPLOAD_FOLDER"])
+    return os.path.abspath(os.path.join(base, storage_path))
+
+
 def upload_file(file, content_id: int, upload_type: str = "cover") -> dict:
     """
     Validate and save an uploaded file.
@@ -65,8 +82,9 @@ def upload_file(file, content_id: int, upload_type: str = "cover") -> dict:
     upload_dir = os.path.join(current_app.config["UPLOAD_FOLDER"], str(content_id))
     os.makedirs(upload_dir, exist_ok=True)
     safe_filename = f"{uuid.uuid4().hex}.{ext}"
-    file_path = os.path.join(upload_dir, safe_filename)
-    with open(file_path, "wb") as f:
+    storage_path = _to_storage_path(content_id, safe_filename)
+    abs_path = resolve_upload_path(storage_path)
+    with open(abs_path, "wb") as f:
         f.write(file_content)
 
     logger.info(
@@ -80,7 +98,7 @@ def upload_file(file, content_id: int, upload_type: str = "cover") -> dict:
     # Step 8: Create ContentAttachment record.
     attachment = ContentAttachment(
         content_id=content_id,
-        file_path=file_path,
+        file_path=storage_path,
         original_filename=file.filename,
         file_type=ext,
         file_size=file_size,
@@ -92,7 +110,7 @@ def upload_file(file, content_id: int, upload_type: str = "cover") -> dict:
     return {
         "success": True,
         "attachment_id": attachment.id,
-        "file_path": file_path,
+        "file_path": storage_path,
         "original_filename": file.filename,
     }
 
@@ -104,8 +122,9 @@ def delete_file(attachment_id: int) -> dict:
         return {"success": False, "reason": "Attachment not found."}
 
     try:
-        os.remove(attachment.file_path)
-        logger.info("Deleted file from disk: %s", attachment.file_path)
+        abs_path = resolve_upload_path(attachment.file_path)
+        os.remove(abs_path)
+        logger.info("Deleted file from disk: %s", abs_path)
     except OSError as e:
         logger.warning(
             "Could not delete file from disk (attachment_id=%d, path=%s): %s",

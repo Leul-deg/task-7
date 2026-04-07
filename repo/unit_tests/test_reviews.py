@@ -155,6 +155,26 @@ class TestCreateReview:
         assert result["success"] is False
         assert "3" in result["reason"]
 
+    def test_customer_and_instructor_can_both_review_same_reservation(self, db, completed_reservation, sample_users):
+        """A completed reservation accepts one review per user (customer + instructor)."""
+        res = completed_reservation["reservation"]
+
+        customer_result = create_review(
+            user_id=sample_users["customer"].id,
+            reservation_id=res.id,
+            rating=5,
+            text="Great class.",
+        )
+        assert customer_result["success"] is True
+
+        staff_result = create_review(
+            user_id=sample_users["staff"].id,
+            reservation_id=res.id,
+            rating=4,
+            text="Customer was engaged.",
+        )
+        assert staff_result["success"] is True
+
 
 # ── TestGetSessionReviews ──────────────────────────────────────────────────────
 
@@ -342,6 +362,20 @@ class TestResolveAppeal:
             resolution_text="OK",
         )
         assert result["success"] is False
+
+    def test_overdue_appeal_cannot_be_resolved(self, db, completed_reservation, sample_users):
+        review, appeal = self._setup_appeal(db, completed_reservation, sample_users)
+        appeal.deadline = datetime.utcnow() - timedelta(days=1)
+        db.session.commit()
+
+        result = resolve_appeal(
+            appeal_id=appeal.id,
+            admin_id=sample_users["admin"].id,
+            decision="upheld",
+            resolution_text="Valid resolution text for overdue appeal.",
+        )
+        assert result["success"] is False
+        assert "5-business-day" in result["reason"]
 
 
 # ── TestUpdateReview ───────────────────────────────────────────────────────────

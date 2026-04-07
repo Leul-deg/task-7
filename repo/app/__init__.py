@@ -141,7 +141,7 @@ def create_app(config_name: str = None) -> Flask:
     _reg_ff(app)
 
     # Root redirect
-    from flask import redirect, url_for, jsonify
+    from flask import abort, jsonify, redirect, send_file, url_for
     from flask_login import current_user
 
     @app.route("/")
@@ -149,6 +149,82 @@ def create_app(config_name: str = None) -> Flask:
         if current_user.is_authenticated:
             return redirect(url_for("booking.schedule"))
         return redirect(url_for("auth.login"))
+
+    @app.route("/media/<path:storage_path>")
+    def media_file(storage_path: str):
+        # Serve uploaded files through an authenticated route.
+        if not current_user.is_authenticated:
+            return redirect(url_for("auth.login"))
+
+        from .services.file_service import resolve_upload_path
+        from .models.content import Content, ContentAttachment
+        from .models.review import ReviewImage
+
+        abs_path = resolve_upload_path(storage_path)
+        upload_root = os.path.abspath(app.config["UPLOAD_FOLDER"])
+
+        # Accept legacy absolute paths only if they still resolve under upload root.
+        try:
+            common = os.path.commonpath([os.path.abspath(abs_path), upload_root])
+        except ValueError:
+            common = ""
+        if common != upload_root or not os.path.isfile(abs_path):
+            abort(404)
+
+        # Normalize to a relative storage path for object-level checks.
+        normalized_path = os.path.relpath(abs_path, upload_root).replace("\\", "/")
+
+        def _is_content_allowed() -> bool:
+            content = (
+                Content.query.filter_by(cover_path=normalized_path).first()
+                or Content.query.filter_by(cover_path=abs_path).first()
+            )
+            if content:
+                return (
+                    current_user.role == "admin"
+                    or content.author_id == current_user.id
+                    or content.status == "published"
+                )
+
+            attachment = (
+                ContentAttachment.query.filter_by(file_path=normalized_path).first()
+                or ContentAttachment.query.filter_by(file_path=abs_path).first()
+            )
+            if not attachment:
+                return False
+
+            content = attachment.content
+            return (
+                current_user.role == "admin"
+                or (content and content.author_id == current_user.id)
+                or (content and content.status == "published")
+            )
+
+        def _is_review_allowed() -> bool:
+            image = (
+                ReviewImage.query.filter_by(file_path=normalized_path).first()
+                or ReviewImage.query.filter_by(file_path=abs_path).first()
+            )
+            if not image:
+                return False
+
+            review = image.review
+            if not review or not review.reservation or not review.reservation.session:
+                return False
+
+            reservation = review.reservation
+            instructor_id = reservation.session.instructor_id
+            return (
+                current_user.role == "admin"
+                or current_user.id == review.user_id
+                or current_user.id == reservation.user_id
+                or current_user.id == instructor_id
+            )
+
+        if not (_is_content_allowed() or _is_review_allowed()):
+            abort(403)
+
+        return send_file(abs_path)
 
     # Health endpoint
     @app.route("/health")
@@ -158,7 +234,8 @@ def create_app(config_name: str = None) -> Flask:
             db.session.execute(db.text("SELECT 1"))
             db_status = "connected"
         except Exception as exc:
-            db_status = f"error: {exc}"
+            app.logger.error("Health check DB failure: %s", exc)
+            db_status = "error"
         status = "healthy" if db_status == "connected" else "unhealthy"
         return jsonify({
             "status": status,
