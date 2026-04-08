@@ -249,13 +249,16 @@ or in a sourced `.env` file so Flask can locate the application.
 ## Running Tests
 
 ```bash
-# Run all suites
+# Run all suites (prefers Docker by default)
 ./run_tests.sh
 
 # Run a specific suite
 ./run_tests.sh unit
 ./run_tests.sh api
 ./run_tests.sh integration
+
+# Force local virtualenv runtime instead of Docker
+STUDIOOPS_TEST_RUNTIME=local ./run_tests.sh
 
 # Direct pytest
 python3 -m pytest unit_tests/ API_tests/ integration_tests/ -v
