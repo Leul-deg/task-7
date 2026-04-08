@@ -1,37 +1,41 @@
-# StudioOps Follow-up Audit (-03)
+# StudioOps Fix Check Report - Cycle 2
 
-## 1) Scope
-- Static-only re-check of the remaining items from `.tmp2/delivery_architecture_audit-02.md`.
-- No runtime execution (no app start, no tests, no Docker).
+## 1. Scope
+- Static-only fix check for the second audit cycle.
+- Purpose: document the issues that were fixed in this cycle and briefly explain how they were solved.
+- No runtime execution was performed for this report.
 
-## 2) Verdict
-- **Pass (follow-up scope)**
-- The previously open documentation mismatch is now fixed.
-- The previously noted coverage lag for new hardening rules is also addressed by new API tests.
+## 2. Verdict
+- **Pass (cycle 2 fix-check scope)**
+- The items carried into this cycle were resolved through documentation updates and targeted regression tests.
 
-## 3) Re-check Results
+## 3. Fixes Completed In This Cycle
 
-### A) Documentation-to-code mismatch (previously Open)
-- Status: **Resolved**
-- Evidence:
-  - `docs/api-spec.md:32`-`docs/api-spec.md:34` now describes login failures as `200` (normal form) and `422` (HTMX), matching implementation.
-  - `app/blueprints/auth.py:50`-`app/blueprints/auth.py:57` returns `422` for HTMX validation failures.
-  - `docs/design.md:23` now explicitly allows lightweight blueprint read queries, aligning with actual route code.
-  - Example blueprint query usage still present and now consistent with docs: `app/blueprints/booking.py:156`.
+### 3.1 Documentation-to-code mismatch
+- Issue: the documentation no longer matched the real implementation in a few important places, especially around login failure behavior and blueprint query guidance.
+- Fix: the docs were updated so the API spec now matches the actual auth response behavior, and the design docs now reflect the lightweight blueprint reads used in the codebase.
+- Evidence: `docs/api-spec.md:32`, `docs/api-spec.md:34`, `app/blueprints/auth.py:50`, `docs/design.md:23`, `app/blueprints/booking.py:156`
 
-### B) Test coverage for newly enforced controls (previously noted lag)
-- Status: **Resolved**
-- Evidence:
-  - New anti-forgery status tests for content save:
-    - `API_tests/test_content_api.py:252` (editor cannot forge `published`)
-    - `API_tests/test_content_api.py:268` (editor cannot forge `in_review`)
-  - New cross-editor draft isolation tests:
-    - `API_tests/test_content_api.py:287`-`API_tests/test_content_api.py:305`
-  - New post-start cancel/reschedule rejection tests:
-    - `API_tests/test_booking_cancellation_window.py:171`-`API_tests/test_booking_cancellation_window.py:237`
-  - New participant-bound appeal test:
-    - `API_tests/test_reviews_api.py:197`-`API_tests/test_reviews_api.py:220`
+### 3.2 Missing regression tests for newly enforced content workflow rules
+- Issue: the hardening for content workflow rules existed, but there were no targeted tests proving editors could not forge privileged status transitions.
+- Fix: new API tests were added to verify that editors cannot directly force content into `published` or `in_review` through the save endpoint.
+- Evidence: `API_tests/test_content_api.py:252`, `API_tests/test_content_api.py:268`
 
-## 4) Final Note
-- Within this follow-up scope, I did not find remaining unresolved items from the prior report chain.
-- Runtime behavior is still **Manual Verification Required** under the static-only boundary.
+### 3.3 Missing regression tests for cross-editor draft isolation
+- Issue: the new unpublished-content access restriction needed explicit coverage so future regressions would be caught.
+- Fix: new API tests were added to confirm that one editor cannot view another editor's draft while valid author/admin access still works.
+- Evidence: `API_tests/test_content_api.py:287`, `API_tests/test_content_api.py:305`
+
+### 3.4 Missing regression tests for post-start cancel/reschedule rejection
+- Issue: the booking window hardening needed dedicated tests to prove cancel/reschedule requests are rejected once the protected time boundary is crossed.
+- Fix: new API tests were added for both cancel and reschedule behavior after session start, including checks that reservation state is preserved on rejection.
+- Evidence: `API_tests/test_booking_cancellation_window.py:171`, `API_tests/test_booking_cancellation_window.py:237`
+
+### 3.5 Missing regression tests for participant-bound appeal authorization
+- Issue: the new appeal authorization rule needed explicit coverage so non-participants could not silently regain access through future changes.
+- Fix: new API tests were added to verify that non-participants are rejected while legitimate participants such as instructors can still file appeals.
+- Evidence: `API_tests/test_reviews_api.py:197`, `API_tests/test_reviews_api.py:220`
+
+## 4. Summary
+- This file is intentionally a fix summary for Cycle 2 only.
+- It focuses on what was fixed and how it was solved, rather than discussing unresolved items.
