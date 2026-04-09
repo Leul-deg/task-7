@@ -16520,6 +16520,16 @@
         "timestamp": null,
         "data": null
       }
-    ]
+    ],
+    "subagents": [],
+    "merge_warnings": [],
+    "merge_stats": {
+      "main_messages": 513,
+      "subagent_messages": 0,
+      "merged_messages": 513,
+      "subagent_count": 0,
+      "has_subagents": false,
+      "source_root": "/home/leul/Documents/task-7/raw_sessions"
+    }
   }
 }
