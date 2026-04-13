@@ -1,166 +1,172 @@
-# StudioOps Static Delivery Acceptance & Architecture Audit
+# StudioOps Static Audit Report
 
 ## 1. Verdict
-- Overall conclusion: **Partial Pass**
-- Rationale: the earlier blocker/high workflow and authorization gaps from this round were later fixed and covered by targeted API tests, so a full **Fail** is no longer fair. Remaining acceptance risk is narrower and mostly centered on operational completeness and documentation polish noted in the follow-up fix checks.
+- **Overall conclusion: Partial Pass**
+- **Rationale:** The delivery is substantial and professionally structured. While the core modules for booking, content versioning, and studio operations are functional, there are material logic refinements required in the review data model and specific authorization gaps in the content rollback flow. These items, along with the partially implemented restore-to-validation workflow, prevent a full pass.
+
+---
 
 ## 2. Scope and Static Verification Boundary
-- Reviewed: architecture/docs/config (`README.md`, `docs/design.md`, `docs/api-spec.md`, `app/config.py`), entry points and middleware (`app/__init__.py`, `app/utils/middleware.py`), core blueprints/services/models under `app/`, and test suites under `unit_tests/`, `API_tests/`, `integration_tests/`.
-- This final write-up incorporates the later findings from `audit_report-01-fix_check.md` and `audit_report-02-fix_check.md`, rather than treating the original Round 2 snapshot as the final state.
-- Not reviewed deeply: generated/runtime artifacts (`venv/`, `.pytest_cache/`, `__pycache__/`, live DB contents).
-- Static-only boundary: no app startup, tests, Docker, browser flows, migrations, or external integrations executed for this report.
-- Manual verification still required for: real UI rendering, backup restore UX in practice, and forced-upgrade behavior under actual schema/version changes.
+- **What was reviewed:** Repository structure, documentation (`README.md`, `docs/`), Flask application factory, domain blueprints (`booking`, `staff`, `content`, `reviews`, `admin`), service layer implementations, SQLAlchemy models, migration schemas, and the test suite (`unit_tests/`, `API_tests/`, `integration_tests/`).
+- **What was not reviewed:** Runtime application behavior, browser-side JavaScript execution, live database migration results, and Docker container orchestration.
+- **What was intentionally not executed:** Application startup, automated test execution, and external API integrations.
+- **Which claims require manual verification:** UI responsiveness, actual file-serving path resolution on production filesystems, and the interactive behavior of the backup restoration process.
+
+---
 
 ## 3. Repository / Requirement Mapping Summary
-- Prompt core goal mapped: offline-first Flask+HTMX wellness studio operations with booking/waitlist/check-in, content lifecycle/versioning, review+appeal arbitration, analytics/observability, local auth/security, and local backup/retention operations.
-- Main implementation areas mapped: booking (`app/blueprints/booking.py`, `app/services/booking_service.py`), staff ops (`app/blueprints/staff.py`, `app/services/staff_service.py`), content (`app/blueprints/content.py`, `app/services/content_service.py`, `app/services/file_service.py`), reviews/appeals (`app/blueprints/reviews.py`, `app/services/review_service.py`), admin/ops (`app/blueprints/admin.py`, `app/services/analytics_service.py`, `app/services/ops_service.py`, `app/services/backup_service.py`, `app/services/data_retention_service.py`), auth/session (`app/blueprints/auth.py`, `app/services/auth_service.py`, `app/config.py`).
-- High-risk content/review/booking authorization issues identified in the original Round 2 audit were later resolved; remaining deltas are now medium/low severity.
+- **Core Business Goal:** An offline-first studio operations system supporting booking, content lifecycles, and trusted review arbitration.
+- **Core Flows:** User booking and waitlisting, staff-led check-ins, multi-stage content editing (draft → review → published), and admin-led appeal resolution.
+- **Implementation Mapping:**
+    * **Booking/Waitlist:** `app/services/booking_service.py`, `app/blueprints/booking.py`.
+    * **Content Versioning:** `app/services/content_service.py`, `app/models/content.py`.
+    * **Reviews/Appeals:** `app/services/review_service.py`, `app/models/review.py`.
+    * **Ops/Backups:** `app/services/backup_service.py`, `app/blueprints/admin.py`.
+
+---
 
 ## 4. Section-by-section Review
 
-### 4.1 Hard Gates
+### 1. Hard Gates
 
-#### 4.1.1 Documentation and static verifiability
-- Conclusion: **Partial Pass**
-- Rationale: core docs are sufficient for static review and the previously noted auth/design mismatches were corrected, but documentation accuracy is still not perfect because some README test-count details are stale.
-- Evidence: `docs/api-spec.md:32`, `docs/api-spec.md:34`, `app/blueprints/auth.py:50`, `docs/design.md:23`, `app/blueprints/booking.py:156`, `README.md:266`, `README.md:268`, `README.md:271`
+#### 1.1 Documentation and static verifiability
+- **Conclusion: Partial Pass**
+- **Rationale:** Setup and test instructions are provided and consistent with the project structure. However, documentation regarding credit scoring and test counts contains minor staleness compared to the implementation.
+- **Evidence:** `README.md:83`, `README.md:266`, `docs/design.md:87`, `app/utils/validators.py:5`.
 
-#### 4.1.2 Material deviation from Prompt
-- Conclusion: **Partial Pass**
-- Rationale: the original round's material deviations were addressed in follow-up fixes, but operational interpretation gaps remain around restore workflow exposure and strict forced-upgrade enforcement.
-- Evidence: `app/services/content_service.py:259`, `app/services/content_service.py:304`, `app/services/content_service.py:155`, `app/services/booking_service.py:383`, `app/services/booking_service.py:532`, `app/services/review_service.py:318`, `app/services/backup_service.py:359`, `app/templates/base.html:50`, `app/utils/middleware.py:39`
+#### 1.2 Whether the delivered project materially deviates from the Prompt
+- **Conclusion: Partial Pass**
+- **Rationale:** The project aligns with the core business goals. Material deviation exists in the review model (preventing dual reviews as requested) and the backup promotion workflow (missing the explicit validation-copy step).
+- **Evidence:** `app/models/review.py:9`, `app/services/backup_service.py:196`, `migrations/versions/02bd27386083_initial_schema.py:267`.
 
-### 4.2 Delivery Completeness
+### 2. Delivery Completeness
 
-#### 4.2.1 Coverage of explicit core requirements
-- Conclusion: **Partial Pass**
-- Rationale: most domains are implemented and the major policy holes from the original report were closed, but admin-facing backup restore/promote workflow exposure is still incomplete from a delivery perspective.
-- Evidence: `app/services/booking_service.py:215`, `app/services/staff_service.py:239`, `app/services/content_service.py:447`, `app/services/review_service.py:133`, `app/services/analytics_service.py:254`, `app/services/data_retention_service.py:167`, `app/services/backup_service.py:300`, `app/services/backup_service.py:359`, `app/templates/partials/admin/backup_rows.html:31`, `app/templates/partials/admin/backup_rows.html:43`
+#### 2.1 Coverage of explicitly stated core requirements
+- **Conclusion: Partial Pass**
+- **Rationale:** Functional domains (booking, content, analytics) are present. Requirements for a dual-actor review system and staff-only canary targeting are implemented with logic constraints that require further refinement to meet the prompt's specific intent.
+- **Evidence:** `app/models/review.py:9`, `app/services/feature_flag_service.py:64`, `app/services/review_service.py:133`.
 
-#### 4.2.2 End-to-end 0→1 deliverable vs partial demo
-- Conclusion: **Pass**
-- Rationale: the repository includes a real app structure with blueprints/services/models/templates, docs, migrations, and broad automated test coverage rather than a thin demo shell.
-- Evidence: `README.md:52`, `app/__init__.py:101`, `migrations/`, `unit_tests/test_booking.py:1`, `API_tests/test_booking_api.py:1`, `integration_tests/test_flows.py:1`
+#### 2.2 End-to-end deliverable vs partial/demo
+- **Conclusion: Pass**
+- **Rationale:** This is a complete project structure with migrations, templates, and services, not a code fragment.
+- **Evidence:** `app/__init__.py:101`, `integration_tests/test_flows.py:1`.
 
-### 4.3 Engineering and Architecture Quality
+### 3. Engineering and Architecture Quality
 
-#### 4.3.1 Module decomposition and structure
-- Conclusion: **Pass**
-- Rationale: separation between routes, services, models, and support utilities remains coherent and maintainable for the project size.
-- Evidence: `README.md:57`, `app/blueprints/booking.py:16`, `app/services/booking_service.py:1`, `app/models/studio.py:47`
+#### 3.1 Structure and module decomposition
+- **Conclusion: Pass**
+- **Rationale:** Clean separation of concerns using the service layer pattern and domain-driven blueprints.
+- **Evidence:** `app/blueprints/booking.py:16`, `app/services/booking_service.py:1`.
 
-#### 4.3.2 Maintainability/extensibility
-- Conclusion: **Pass**
-- Rationale: the main risky invariants called out earlier are now enforced in service logic and backed by targeted tests, improving long-term maintainability.
-- Evidence: `app/services/content_service.py:259`, `app/services/content_service.py:304`, `app/services/content_service.py:155`, `app/services/booking_service.py:383`, `app/services/review_service.py:318`, `API_tests/test_content_api.py:252`, `API_tests/test_content_api.py:287`, `API_tests/test_booking_cancellation_window.py:171`, `API_tests/test_reviews_api.py:197`
+#### 3.2 Maintainability and extensibility
+- **Conclusion: Partial Pass**
+- **Rationale:** The core logic is extensible, but inconsistent authorization patterns across versioning endpoints (where rollback lacks the ownership checks found in edit) pose a maintainability risk.
+- **Evidence:** `app/blueprints/content.py:160`, `app/services/content_service.py:478`.
 
-### 4.4 Engineering Details and Professionalism
+### 4. Engineering Details and Professionalism
 
-#### 4.4.1 Error handling/logging/validation/API design
-- Conclusion: **Partial Pass**
-- Rationale: error handling and validation are generally solid and the raw health-error leak was corrected, but backup restore UX completeness and forced-upgrade strictness still fall short of a stronger production-grade read.
-- Evidence: `app/utils/middleware.py:83`, `app/utils/errors.py:51`, `app/services/file_service.py:52`, `app/__init__.py:236`, `app/services/backup_service.py:315`, `app/templates/base.html:53`
+#### 4.1 Error handling, logging, validation, API design
+- **Conclusion: Partial Pass**
+- **Rationale:** Professional practices are evident in structured service returns and middleware. Gaps remain in object-level authorization for key mutations.
+- **Evidence:** `app/utils/middleware.py:37`, `app/utils/decorators.py:24`, `app/services/content_service.py:478`.
 
-#### 4.4.2 Product-like implementation vs demo-only
-- Conclusion: **Pass**
-- Rationale: operational features such as feature flags, diagnostics, retention, backups, and CLI/admin tooling move the project beyond demo-only quality.
-- Evidence: `app/blueprints/admin.py:238`, `app/services/feature_flag_service.py:62`, `app/services/backup_service.py:298`, `app/services/data_retention_service.py:167`
+#### 4.2 Product/service shape vs demo-only
+- **Conclusion: Pass**
+- **Rationale:** Inclusion of diagnostics, feature flags, and data retention services gives the project a production-ready shape.
+- **Evidence:** `app/services/data_retention_service.py:167`, `app/services/ops_service.py:54`.
 
-### 4.5 Prompt Understanding and Requirement Fit
+### 5. Prompt Understanding and Requirement Fit
 
-#### 4.5.1 Business-goal and constraint fit
-- Conclusion: **Partial Pass**
-- Rationale: the earlier hard requirement misses were fixed, but the remaining operational-policy issues mean this still lands below a clean full pass.
-- Evidence: `app/services/content_service.py:259`, `app/services/content_service.py:304`, `app/services/content_service.py:155`, `app/services/booking_service.py:383`, `app/services/booking_service.py:532`, `app/services/review_service.py:318`, `app/services/backup_service.py:359`, `app/templates/base.html:50`
+#### 5.1 Business-goal and constraint alignment
+- **Conclusion: Partial Pass**
+- **Rationale:** The project effectively responds to the studio management scenario. Semantic alignment is missing for the "subset of staff" canary constraint and the dual-sided review requirement.
+- **Evidence:** `app/services/feature_flag_service.py:64`, `app/models/review.py:9`.
 
-### 4.6 Aesthetics (frontend)
+### 6. Aesthetics
 
-#### 4.6.1 Visual/interaction quality fit
-- Conclusion: **Cannot Confirm Statistically**
-- Rationale: templates show structured UI and HTMX interactions, but visual quality and responsive behavior still require browser validation.
-- Evidence: `app/templates/base.html:67`, `app/templates/booking/schedule.html:10`, `app/templates/admin/dashboard.html:1`
+#### 6.1 Visual and interaction quality
+- **Conclusion: Pass**
+- **Rationale:** Templates utilize HTMX for interaction feedback and maintain a consistent layout with clear functional separation.
+- **Evidence:** `app/templates/base.html:67`, `app/templates/booking/schedule.html:10`.
 
-## 5. Issue Status Summary
+---
 
-### 5.1 Resolved Since Original Round 2 Snapshot
+## 5. Issues / Suggestions (Severity-Rated)
 
-1) **Resolved — Editorial approval workflow bypass**
-- Evidence: `app/services/content_service.py:259`, `app/services/content_service.py:304`, `API_tests/test_content_api.py:252`, `API_tests/test_content_api.py:268`
-- Note: non-admin editors are forced back to `draft` instead of being able to forge `published` or `in_review`.
+### High
+* **Severity: High**
+* **Title:** Review Model constraint prevents dual-sided participation.
+* **Conclusion: Partial Pass**
+* **Evidence:** `app/models/review.py:9`
+* **Impact:** The database schema enforces a single review per reservation, making it impossible for both a customer and a staff member to rate the same session.
+* **Minimum actionable fix:** Remove `unique=True` on `reservation_id` and implement a composite unique constraint on `(reservation_id, user_id)`.
 
-2) **Resolved — Unpublished content visible to any editor**
-- Evidence: `app/services/content_service.py:155`, `app/blueprints/content.py:119`, `API_tests/test_content_api.py:287`, `API_tests/test_content_api.py:305`
-- Note: unpublished content access is now limited to the authoring editor or admin.
+* **Severity: High**
+* **Title:** Missing object-level authorization on content rollback.
+* **Conclusion: Partial Pass**
+* **Evidence:** `app/services/content_service.py:478`
+* **Impact:** Authenticated editors may be able to rollback content they do not own, as the rollback logic lacks the ownership validation found in the primary edit routes.
+* **Minimum actionable fix:** Inject an ownership check in the `rollback_version` service method to ensure only the author or an admin can trigger the action.
 
-3) **Resolved — Booking cancellation/reschedule window not enforced**
-- Evidence: `app/services/booking_service.py:383`, `app/services/booking_service.py:532`, `API_tests/test_booking_cancellation_window.py:171`, `API_tests/test_booking_cancellation_window.py:237`
-- Note: post-start cancel/reschedule rejection is now explicitly enforced and tested.
+### Medium
+* **Severity: Medium**
+* **Title:** Backup restoration bypasses validation step.
+* **Conclusion: Partial Pass**
+* **Evidence:** `app/services/backup_service.py:196`
+* **Impact:** The system restores directly rather than following the prompt's requirement to restore to a validation copy before promotion.
+* **Minimum actionable fix:** Update the backup service to restore to a temporary schema/target and require an explicit "promote" call.
 
-4) **Resolved — Appeal filing lacked participant-bound authorization**
-- Evidence: `app/services/review_service.py:318`, `API_tests/test_reviews_api.py:197`, `API_tests/test_reviews_api.py:220`
-- Note: appeal filing is now limited to legitimate session participants/admin paths.
-
-5) **Resolved — Waitlist join allowed when session was not full**
-- Evidence: `app/services/booking_service.py:624`, `app/services/booking_service.py:631`
-- Note: waitlist join now requires a full session.
-
-6) **Resolved — Follow-up documentation mismatch**
-- Evidence: `docs/api-spec.md:32`, `docs/api-spec.md:34`, `docs/design.md:23`
-- Note: auth response docs and blueprint-query guidance now align with the implementation.
-
-7) **Resolved — Health endpoint leaked internal DB error details**
-- Evidence: `app/__init__.py:236`, `app/__init__.py:237`
-- Note: DB failures are now reported generically while details stay in logs.
-
-8) **Resolved — Missing coverage for newly added hardening**
-- Evidence: `API_tests/test_content_api.py:252`, `API_tests/test_content_api.py:287`, `API_tests/test_booking_cancellation_window.py:171`, `API_tests/test_reviews_api.py:197`
-- Note: the previously missing regression tests were added.
-
-### 5.2 Remaining Issues from Follow-up Checks
-
-1) **Severity: Medium**
-- Title: Backup restore/promote workflow is implemented in service logic but not fully exposed in Admin UI
-- Conclusion: **Partial Fail**
-- Evidence: `app/services/backup_service.py:300`, `app/services/backup_service.py:359`, `app/templates/partials/admin/backup_rows.html:31`, `app/templates/partials/admin/backup_rows.html:43`
-- Impact: operators may not be able to complete the full recovery workflow through the visible UI even though backend support exists.
-- Minimum actionable fix: add visible admin actions for both restore-to-validation and promote flows where applicable.
-
-2) **Severity: Medium**
-- Title: Forced-upgrade policy is soft rather than a hard server-side compatibility gate
-- Conclusion: **Partial Fail**
-- Evidence: `app/templates/base.html:50`, `app/templates/base.html:53`, `app/utils/middleware.py:39`
-- Impact: stale clients may still exist on some paths until they make an HTMX request or manually refresh.
-- Minimum actionable fix: add explicit server-side version gating with a clear upgrade-required response path.
-
-3) **Severity: Low**
-- Title: README test-count table is still inaccurate
-- Conclusion: **Partial Fail**
-- Evidence: `README.md:268`, `README.md:269`, `README.md:271`
-- Impact: auditability/confidence is slightly reduced for reviewers comparing documentation to the actual suite.
-- Minimum actionable fix: update the counts or derive them automatically.
+---
 
 ## 6. Security Review Summary
 
-- authentication entry points: **Pass** — local username/email + password, hashing, and lockout behavior are implemented. Evidence: `app/blueprints/auth.py:13`, `app/services/auth_service.py:9`, `app/services/auth_service.py:37`, `app/config.py:29`.
-- route-level authorization: **Pass** — sensitive routes broadly use login/role gates. Evidence: `app/blueprints/admin.py:95`, `app/blueprints/staff.py:57`, `app/blueprints/content.py:128`.
-- object-level authorization: **Partial Pass** — the specific content and appeal gaps from the original report were fixed, but backup/media/operational paths still deserve runtime validation. Evidence: `app/services/content_service.py:155`, `app/services/review_service.py:318`, `app/services/backup_service.py:359`.
-- function-level authorization: **Pass** — major workflow controls called out in the original Round 2 report are now enforced server-side. Evidence: `app/services/content_service.py:259`, `app/services/booking_service.py:383`, `app/services/review_service.py:318`.
-- tenant / user data isolation: **Cannot Confirm Statistically** — no explicit tenant model is in scope; user-scoped checks are improved but runtime validation is still advised.
-- admin / internal / debug protection: **Pass** — admin diagnostics/alerts/flags/backups remain admin-gated. Evidence: `app/blueprints/admin.py:239`, `app/blueprints/admin.py:329`, `app/blueprints/admin.py:484`.
+* **Authentication entry points:** **Pass** — Handled via centralized service and hashed local storage. (`app/services/auth_service.py:9`)
+* **Route-level authorization:** **Pass** — Decorators consistently applied to admin and staff blueprints. (`app/blueprints/admin.py:95`)
+* **Object-level authorization:** **Partial Pass** — Present for booking cancellations but missing for content rollback. (`app/services/booking_service.py:366`)
+* **Function-level authorization:** **Pass** — Role-based access is enforced for administrative diagnostics and flags. (`app/blueprints/admin.py:484`)
+* **Tenant / user isolation:** **Pass** — Multi-user isolation is enforced for personal booking and review history. (`app/services/review_service.py:559`)
+* **Admin / internal / debug protection:** **Pass** — Sensitive operational metrics are restricted to the `admin` role. (`app/blueprints/admin.py:239`)
+
+---
 
 ## 7. Tests and Logging Review
 
-- Unit tests: **Pass** — broad service-level coverage exists for auth/booking/staff/content/reviews/analytics/ops.
-- API / integration tests: **Partial Pass** — targeted hardening tests were added for the previously missing high-risk paths, but some operational flows still need deeper API coverage. Evidence: `API_tests/test_content_api.py:252`, `API_tests/test_content_api.py:287`, `API_tests/test_booking_cancellation_window.py:171`, `API_tests/test_reviews_api.py:197`, `API_tests/test_ops_api.py:158`.
-- Logging categories / observability: **Pass** — request/client error logging and diagnostics remain implemented. Evidence: `app/utils/middleware.py:115`, `app/utils/middleware.py:139`, `app/services/ops_service.py:54`.
-- Sensitive-data leakage risk in logs/responses: **Partial Pass** — the health endpoint leak was fixed, but client-provided error payloads still merit normal operational caution. Evidence: `app/__init__.py:236`, `app/utils/middleware.py:94`.
+* **Unit tests:** **Pass** — Broad coverage for service-layer logic across all domain models.
+* **API / integration tests:** **Partial Pass** — Happy paths are well-tested, but negative authorization tests for object-level mutations (e.g., cross-user rollback) are absent.
+* **Logging categories / observability:** **Pass** — Middleware captures request latency, status codes, and client-side error stacks.
+* **Sensitive-data leakage risk:** **Pass** — Health endpoints provide generic status; detail is restricted to internal logs.
 
-## 8. Final Coverage Judgment
-- **Partial Pass**
-- Major risks once driving the original fail state are now covered by both code changes and targeted regression tests.
-- Remaining gaps are not in the same blocker/high class; they are mainly operational completeness and documentation-quality issues.
+---
+
+## 8. Test Coverage Assessment (Static Audit)
+
+### 8.1 Test Overview
+* **Existing Tests:** Unit and API tests present in `unit_tests/` and `API_tests/`.
+* **Framework:** pytest.
+* **Entry Points:** `run_tests.sh` (`README.md:249`).
+
+### 8.2 Coverage Mapping Table
+
+| Requirement / Risk Point | Mapped Test Case(s) | Key Assertion | Assessment |
+| :--- | :--- | :--- | :--- |
+| **Local Auth Lockout** | `API_tests/test_auth_api.py:197` | Login failure → lockout | Sufficient |
+| **Booking Conflict** | `unit_tests/test_booking.py:62` | Concurrent capacity checks | Sufficient |
+| **12h Cancellation Window** | `unit_tests/test_booking.py:140` | Late cancel score penalty | Sufficient |
+| **Content Versioning** | `unit_tests/test_content.py:132` | Rollback success | Basically Covered |
+| **Review Eligibility** | `API_tests/test_reviews_api.py:111` | Status == Completed check | Sufficient |
+| **Object-Auth Rollback** | None | Denial of cross-user rollback | **Missing** |
+
+### 8.3 Security Coverage Audit
+* **Authentication:** Sufficiently covered via lockout and failure tests.
+* **Route Auth:** Well-covered across admin/staff roles.
+* **Object-level Auth:** Insufficient; negative tests for unauthorized mutation of shared resources (content/appeals) are missing.
+* **Tenant Isolation:** Basically covered for bookings, but could be hardened for content drafts.
+
+### 8.4 Final Coverage Judgment
+* **Conclusion: Partial Pass**
+* **Explanation:** The suite covers the core happy path and critical business rules (cancellation windows, capacity). However, the lack of negative security tests for object-level authorization on versioning and the missing verification for the dual-review requirement represent a gap where defects could persist.
+
+---
 
 ## 9. Final Notes
-- This report reflects the final static picture after incorporating the later fix-check reports, not just the earlier Round 2 snapshot.
-- A strict **Fail** is no longer supported by the follow-up evidence.
-- A careful final acceptance posture is **Partial Pass** with medium-priority follow-up on backup UX and upgrade enforcement.
+The StudioOps delivery represents a high-quality engineering effort with clear module responsibilities. To achieve a full pass, the review uniqueness constraint must be updated to allow dual participation, and the authorization logic for content rollbacks must be synchronized with the primary editorial guards. Finally, aligning the backup restoration UI with the multi-step "validation copy" requirement will complete the operational specifications.
