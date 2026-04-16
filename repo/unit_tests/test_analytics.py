@@ -21,6 +21,7 @@ from app.services.analytics_service import (
     compute_booking_funnel,
     get_overview_metrics,
     get_review_summary,
+    get_content_engagement,
 )
 from app.services.credit_service import (
     recalculate_credit,
@@ -301,3 +302,119 @@ class TestRateLimit:
         r2 = track_event("booking_start", session_id="rl4")
         assert r1 is True
         assert r2 is True  # only page_view and heartbeat are rate-limited
+
+
+# ── TestContentEngagement ─────────────────────────────────────────────────────
+
+class TestContentEngagement:
+    """Unit tests for analytics_service.get_content_engagement()."""
+
+    def test_empty_returns_empty_list(self, db):
+        """No events → empty result list."""
+        result = get_content_engagement()
+        assert result == []
+
+    def test_page_views_are_counted(self, db, sample_users):
+        """Page view events on /content/<id> are counted and returned."""
+        from app.models.analytics import AnalyticsEvent
+        ev = AnalyticsEvent(
+            event_type="page_view",
+            page="/content/42",
+            user_id=sample_users["customer"].id,
+        )
+        db.session.add(ev)
+        db.session.commit()
+
+        result = get_content_engagement()
+        assert len(result) == 1
+        assert result[0]["content_id"] == 42
+        assert result[0]["page_views"] == 1
+
+    def test_unique_visitors_counted_once_per_user(self, db, sample_users):
+        """Multiple PV events from the same user count as one unique visitor."""
+        from app.models.analytics import AnalyticsEvent
+        for _ in range(3):
+            db.session.add(AnalyticsEvent(
+                event_type="page_view",
+                page="/content/7",
+                user_id=sample_users["customer"].id,
+            ))
+        db.session.commit()
+
+        result = get_content_engagement()
+        assert result[0]["unique_visitors"] == 1
+
+    def test_multiple_users_distinct_uvs(self, db, sample_users):
+        """Two different users each contribute one unique visitor."""
+        from app.models.analytics import AnalyticsEvent
+        db.session.add(AnalyticsEvent(
+            event_type="page_view", page="/content/9",
+            user_id=sample_users["customer"].id,
+        ))
+        db.session.add(AnalyticsEvent(
+            event_type="page_view", page="/content/9",
+            user_id=sample_users["staff"].id,
+        ))
+        db.session.commit()
+
+        result = get_content_engagement()
+        assert result[0]["unique_visitors"] == 2
+
+    def test_sorted_by_page_views_descending(self, db, sample_users):
+        """Result is sorted by page_views descending."""
+        from app.models.analytics import AnalyticsEvent
+        # Content 1 gets 3 PVs, content 2 gets 1 PV
+        for _ in range(3):
+            db.session.add(AnalyticsEvent(
+                event_type="page_view", page="/content/1",
+                user_id=sample_users["customer"].id,
+            ))
+        db.session.add(AnalyticsEvent(
+            event_type="page_view", page="/content/2",
+            user_id=sample_users["customer"].id,
+        ))
+        db.session.commit()
+
+        result = get_content_engagement()
+        assert result[0]["content_id"] == 1
+        assert result[1]["content_id"] == 2
+
+    def test_limit_parameter_respected(self, db, sample_users):
+        """limit=1 returns only the top-ranked content item."""
+        from app.models.analytics import AnalyticsEvent
+        for cid in (10, 11, 12):
+            db.session.add(AnalyticsEvent(
+                event_type="page_view", page=f"/content/{cid}",
+                user_id=sample_users["customer"].id,
+            ))
+        db.session.commit()
+
+        result = get_content_engagement(limit=1)
+        assert len(result) == 1
+
+    def test_result_shape_has_required_keys(self, db, sample_users):
+        """Each result dict has all expected keys."""
+        from app.models.analytics import AnalyticsEvent
+        db.session.add(AnalyticsEvent(
+            event_type="page_view", page="/content/5",
+            user_id=sample_users["customer"].id,
+        ))
+        db.session.commit()
+
+        result = get_content_engagement()
+        item = result[0]
+        for key in ("content_id", "title", "content_type", "page_views",
+                    "unique_visitors", "avg_dwell_seconds"):
+            assert key in item, f"Missing key: {key}"
+
+    def test_non_content_pages_ignored(self, db, sample_users):
+        """Page view events that don't match /content/<id> are not counted."""
+        from app.models.analytics import AnalyticsEvent
+        db.session.add(AnalyticsEvent(
+            event_type="page_view", page="/schedule",
+            user_id=sample_users["customer"].id,
+        ))
+        db.session.commit()
+
+        result = get_content_engagement()
+        assert result == []

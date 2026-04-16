@@ -305,3 +305,65 @@ class TestBackupService:
             assert record.status == "restored"
             safety_zips = list(backups_dir.glob("pre_restore_uploads_*.zip"))
             assert len(safety_zips) >= 1
+
+    def test_enforce_retention_prunes_oldest(self, db):
+        """enforce_retention(max_backups=2) deletes the oldest when 3 exist."""
+        from datetime import datetime, timedelta
+        now = datetime.utcnow()
+        for i in range(3):
+            b = Backup(
+                backup_type="database",
+                file_path=f"/tmp/db_backup_{i}.sql",
+                file_size=1024,
+                status="completed",
+                created_at=now - timedelta(hours=(3 - i)),  # oldest first
+            )
+            db.session.add(b)
+        db.session.commit()
+
+        result = backup_service.enforce_retention(max_backups=2)
+        assert result["deleted"] == 1
+        assert result["kept"] == 2
+        remaining = Backup.query.filter_by(backup_type="database", status="completed").all()
+        assert len(remaining) == 2
+
+    def test_enforce_retention_keeps_all_when_under_limit(self, db):
+        """When backup count ≤ max_backups, nothing is deleted."""
+        b = Backup(
+            backup_type="files",
+            file_path="/tmp/files_backup_single.zip",
+            file_size=512,
+            status="completed",
+        )
+        db.session.add(b)
+        db.session.commit()
+
+        result = backup_service.enforce_retention(max_backups=5)
+        assert result["deleted"] == 0
+        assert result["kept"] == 1
+
+    def test_enforce_retention_separates_by_type(self, db):
+        """Database and files backups are pruned independently per type."""
+        from datetime import datetime, timedelta
+        now = datetime.utcnow()
+        # 3 database backups → keep 2, delete 1
+        for i in range(3):
+            db.session.add(Backup(
+                backup_type="database",
+                file_path=f"/tmp/db_{i}.sql",
+                file_size=10,
+                status="completed",
+                created_at=now - timedelta(hours=(3 - i)),
+            ))
+        # 1 files backup — under limit
+        db.session.add(Backup(
+            backup_type="files",
+            file_path="/tmp/files_1.zip",
+            file_size=10,
+            status="completed",
+        ))
+        db.session.commit()
+
+        result = backup_service.enforce_retention(max_backups=2)
+        assert result["deleted"] == 1   # only 1 database backup pruned
+        assert result["kept"] == 3       # 2 db + 1 files

@@ -313,3 +313,259 @@ def test_very_low_credit_blocked(app, db, sample_users, sample_session):
         result = create_reservation(user.id, sample_session.id)
         assert result["success"] is False
         assert result["action"] == "blocked"
+
+
+# ── leave_waitlist ─────────────────────────────────────────────────────────────
+
+def _full_session_with_waitlister(db, sample_users, sample_room):
+    """Helper: capacity=1 session, customer A books it, customer B joins waitlist."""
+    tomorrow = datetime.utcnow() + timedelta(days=1)
+    start = tomorrow.replace(hour=10, minute=0, second=0, microsecond=0)
+    session = StudioSession(
+        title="Full Session",
+        instructor_id=sample_users["staff"].id,
+        room_id=sample_room.id,
+        start_time=start,
+        end_time=start + timedelta(hours=1),
+        capacity=1,
+        is_active=True,
+    )
+    db.session.add(session)
+    db.session.commit()
+
+    create_reservation(sample_users["customer"].id, session.id)
+
+    waiter = User(
+        username="waiter_unit",
+        email="waiter_unit@test.com",
+        role="customer",
+        credit_score=100,
+        password_hash=hash_password("TestPass123!"),
+    )
+    db.session.add(waiter)
+    db.session.commit()
+
+    join_waitlist(waiter.id, session.id)
+    entry = Waitlist.query.filter_by(user_id=waiter.id, session_id=session.id, is_active=True).first()
+    return session, waiter, entry
+
+
+def test_leave_waitlist_success(app, db, sample_users, sample_room):
+    """Owner can leave their own waitlist entry; entry becomes inactive."""
+    with app.app_context():
+        _session, waiter, entry = _full_session_with_waitlister(db, sample_users, sample_room)
+        result = leave_waitlist(entry.id, waiter.id)
+        assert result["success"] is True
+        db.session.refresh(entry)
+        assert entry.is_active is False
+
+
+def test_leave_waitlist_wrong_user_rejected(app, db, sample_users, sample_room):
+    """A different user cannot remove someone else from the waitlist."""
+    with app.app_context():
+        _session, waiter, entry = _full_session_with_waitlister(db, sample_users, sample_room)
+        # staff is not the waitlister
+        result = leave_waitlist(entry.id, sample_users["staff"].id)
+        assert result["success"] is False
+        assert "yourself" in result["reason"]
+        db.session.refresh(entry)
+        assert entry.is_active is True
+
+
+def test_leave_waitlist_admin_can_remove_any(app, db, sample_users, sample_room):
+    """Admin can remove any user from the waitlist."""
+    with app.app_context():
+        _session, waiter, entry = _full_session_with_waitlister(db, sample_users, sample_room)
+        result = leave_waitlist(entry.id, sample_users["admin"].id)
+        assert result["success"] is True
+        db.session.refresh(entry)
+        assert entry.is_active is False
+
+
+def test_leave_waitlist_already_inactive_fails(app, db, sample_users, sample_room):
+    """Trying to leave an already-inactive waitlist entry fails gracefully."""
+    with app.app_context():
+        _session, waiter, entry = _full_session_with_waitlister(db, sample_users, sample_room)
+        leave_waitlist(entry.id, waiter.id)   # first leave — succeeds
+        result = leave_waitlist(entry.id, waiter.id)  # second — already inactive
+        assert result["success"] is False
+        assert "no longer active" in result["reason"]
+
+
+def test_leave_waitlist_compacts_positions(app, db, sample_users, sample_room):
+    """Leaving from the middle of the waitlist shifts positions down by 1."""
+    with app.app_context():
+        tomorrow = datetime.utcnow() + timedelta(days=1)
+        start = tomorrow.replace(hour=10, minute=0, second=0, microsecond=0)
+        session = StudioSession(
+            title="Compact Test Session",
+            instructor_id=sample_users["staff"].id,
+            room_id=sample_room.id,
+            start_time=start,
+            end_time=start + timedelta(hours=1),
+            capacity=1,
+            is_active=True,
+        )
+        db.session.add(session)
+        db.session.commit()
+
+        create_reservation(sample_users["customer"].id, session.id)
+
+        users = []
+        for i in range(3):
+            u = User(
+                username=f"compact_waiter_{i}",
+                email=f"compact_{i}@test.com",
+                role="customer",
+                credit_score=100,
+                password_hash=hash_password("TestPass123!"),
+            )
+            db.session.add(u)
+            db.session.commit()
+            join_waitlist(u.id, session.id)
+            users.append(u)
+
+        # Positions should be 1, 2, 3
+        entries = (
+            Waitlist.query.filter_by(session_id=session.id, is_active=True)
+            .order_by(Waitlist.position)
+            .all()
+        )
+        assert [e.position for e in entries] == [1, 2, 3]
+
+        # Remove position 1 (first waiter)
+        leave_waitlist(entries[0].id, users[0].id)
+
+        # Remaining entries should now be at positions 1, 2
+        remaining = (
+            Waitlist.query.filter_by(session_id=session.id, is_active=True)
+            .order_by(Waitlist.position)
+            .all()
+        )
+        assert [e.position for e in remaining] == [1, 2]
+
+
+# ── Concurrent booking simulation ─────────────────────────────────────────────
+
+def test_last_spot_second_booking_diverted_to_waitlist(app, db, sample_users, sample_room):
+    """When two users sequentially attempt to book the last spot, the second is
+    diverted to the waitlist, not double-admitted."""
+    with app.app_context():
+        tomorrow = datetime.utcnow() + timedelta(days=1)
+        start = tomorrow.replace(hour=10, minute=0, second=0, microsecond=0)
+        session = StudioSession(
+            title="Last Spot Session",
+            instructor_id=sample_users["staff"].id,
+            room_id=sample_room.id,
+            start_time=start,
+            end_time=start + timedelta(hours=1),
+            capacity=1,
+            is_active=True,
+        )
+        db.session.add(session)
+        db.session.commit()
+
+        user_b = User(
+            username="last_spot_b",
+            email="last_spot_b@test.com",
+            role="customer",
+            credit_score=100,
+            password_hash=hash_password("TestPass123!"),
+        )
+        db.session.add(user_b)
+        db.session.commit()
+
+        result_a = create_reservation(sample_users["customer"].id, session.id)
+        assert result_a["success"] is True
+
+        result_b = create_reservation(user_b.id, session.id)
+        # Session is now full; second user should be diverted to waitlist
+        assert result_b["success"] is False
+        assert result_b["action"] == "waitlist"
+
+        # Exactly one confirmed reservation
+        confirmed = Reservation.query.filter_by(
+            session_id=session.id, status="confirmed"
+        ).count()
+        assert confirmed == 1
+
+
+# ── check_booking_conflicts boundary cases ─────────────────────────────────────
+
+def _make_session(db, sample_users, sample_room, start, end, title="Test"):
+    from app.models.studio import StudioSession
+    s = StudioSession(
+        title=title,
+        instructor_id=sample_users["staff"].id,
+        room_id=sample_room.id,
+        start_time=start,
+        end_time=end,
+        capacity=15,
+        is_active=True,
+    )
+    db.session.add(s)
+    db.session.commit()
+    return s
+
+
+def test_conflict_exact_adjacent_no_overlap(app, db, sample_users, sample_room):
+    """Sessions that share an exact start==end boundary must NOT conflict.
+
+    Existing: 10:00–11:00.  New: 11:00–12:00.
+    The overlap formula is strict (< not <=) so this should return None.
+    """
+    with app.app_context():
+        tomorrow = datetime.utcnow() + timedelta(days=1)
+        t10 = tomorrow.replace(hour=10, minute=0, second=0, microsecond=0)
+        t11 = tomorrow.replace(hour=11, minute=0, second=0, microsecond=0)
+        t12 = tomorrow.replace(hour=12, minute=0, second=0, microsecond=0)
+
+        s1 = _make_session(db, sample_users, sample_room, t10, t11, "Morning Slot")
+        s2 = _make_session(db, sample_users, sample_room, t11, t12, "Afternoon Slot")
+
+        # Book the first session
+        r = create_reservation(sample_users["customer"].id, s1.id)
+        assert r["success"] is True
+
+        # Check conflicts for the second session — should be None (no overlap)
+        conflict = check_booking_conflicts(sample_users["customer"].id, s2.id)
+        assert conflict is None
+
+
+def test_conflict_partial_overlap_detected(app, db, sample_users, sample_room):
+    """Partial overlap (new session starts before existing ends) must be detected."""
+    with app.app_context():
+        tomorrow = datetime.utcnow() + timedelta(days=1)
+        t10 = tomorrow.replace(hour=10, minute=0, second=0, microsecond=0)
+        t11 = tomorrow.replace(hour=11, minute=0, second=0, microsecond=0)
+        t1030 = t10 + timedelta(minutes=30)
+        t1130 = t11 + timedelta(minutes=30)
+
+        s1 = _make_session(db, sample_users, sample_room, t10, t11, "Overlap Base")
+        s2 = _make_session(db, sample_users, sample_room, t1030, t1130, "Overlap New")
+
+        r = create_reservation(sample_users["customer"].id, s1.id)
+        assert r["success"] is True
+
+        conflict = check_booking_conflicts(sample_users["customer"].id, s2.id)
+        assert conflict is not None
+        assert conflict["conflict"] is True
+        assert conflict["conflicting_session"]["id"] == s1.id
+
+
+def test_conflict_nonexistent_session_raises(app, db, sample_users):
+    """check_booking_conflicts raises ValueError for unknown session_id."""
+    with app.app_context():
+        import pytest
+        with pytest.raises(ValueError, match="Session not found"):
+            check_booking_conflicts(sample_users["customer"].id, 999999)
+
+
+def test_conflict_no_existing_reservations_returns_none(app, db, sample_users, sample_room):
+    """User with no confirmed reservations has no conflicts."""
+    with app.app_context():
+        tomorrow = datetime.utcnow() + timedelta(days=1)
+        start = tomorrow.replace(hour=9, minute=0, second=0, microsecond=0)
+        s = _make_session(db, sample_users, sample_room, start, start + timedelta(hours=1))
+        result = check_booking_conflicts(sample_users["customer"].id, s.id)
+        assert result is None

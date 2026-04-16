@@ -99,8 +99,9 @@ case "$TEST_RUNTIME" in
     if have_docker_runtime; then
         run_docker_tests
     else
-        echo "→ Docker runtime unavailable, falling back to local Python"
-        run_local_tests
+        echo "ERROR: Docker runtime unavailable."
+        echo "       Start Docker Desktop or set STUDIOOPS_TEST_RUNTIME=local to use a local venv."
+        exit 1
     fi
     ;;
   local)

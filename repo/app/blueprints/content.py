@@ -356,6 +356,27 @@ def rollback(content_id: int, version_id: int):
     return redirect(url_for("content.editor_edit", content_id=content_id))
 
 
+# ── Route 11b — delete content ────────────────────────────────────────────────
+
+@content_bp.route("/editor/<int:content_id>", methods=["DELETE"])
+@login_required
+@role_required("editor", "admin")
+def delete(content_id: int):
+    """DELETE /content/editor/<id> — permanently remove content (owner or admin)."""
+    result = content_service.delete_content(content_id, current_user.id)
+
+    if not result["success"]:
+        code = 403 if "only delete your own" in result["reason"] else 400
+        return _error_fragment(result["reason"], code)
+
+    if _is_htmx():
+        resp = make_response()
+        resp.headers["HX-Redirect"] = url_for("content.editor_dashboard")
+        return resp, 200
+
+    return redirect(url_for("content.editor_dashboard"))
+
+
 # ── Route 12 — markdown preview ───────────────────────────────────────────────
 
 @content_bp.route("/preview", methods=["POST"])

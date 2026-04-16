@@ -3,7 +3,7 @@ from flask import (
     url_for, flash, make_response,
 )
 from flask_login import login_user, logout_user, current_user
-from ..services.auth_service import authenticate, register_user
+from ..services.auth_service import authenticate, register_user, change_password
 from ..utils.validators import validate_registration
 from ..utils.decorators import login_required
 
@@ -114,3 +114,41 @@ def register():
             ), 422
 
     return render_template("auth/register.html", errors=errors, form_data=form_data)
+
+
+@auth_bp.route("/change-password", methods=["GET", "POST"])
+@login_required
+def change_password_view():
+    """GET/POST /auth/change-password — authenticated user changes their own password."""
+    errors = {}
+
+    if request.method == "POST":
+        current_pw = request.form.get("current_password", "")
+        new_pw = request.form.get("new_password", "")
+        confirm_pw = request.form.get("confirm_password", "")
+
+        if not current_pw:
+            errors["current_password"] = "Current password is required."
+        if not new_pw:
+            errors["new_password"] = "New password is required."
+        elif len(new_pw) < 10:
+            errors["new_password"] = "New password must be at least 10 characters."
+        elif new_pw != confirm_pw:
+            errors["confirm_password"] = "Passwords do not match."
+
+        if not errors:
+            result = change_password(current_user.id, current_pw, new_pw)
+            if result["success"]:
+                flash(result["message"], "success")
+                if request.headers.get("HX-Request"):
+                    response = make_response()
+                    response.headers["HX-Redirect"] = url_for("booking.schedule")
+                    return response, 200
+                return redirect(url_for("booking.schedule"))
+            else:
+                errors["current_password"] = result["reason"]
+
+        if request.headers.get("HX-Request"):
+            return render_template("auth/change_password.html", errors=errors), 422
+
+    return render_template("auth/change_password.html", errors=errors)

@@ -85,17 +85,28 @@ class TestSubmitReview:
         )
         assert resp.status_code == 201
         assert b"submitted" in resp.data.lower() or b"review" in resp.data.lower()
+        # Verify the review is actually persisted
+        review = Review.query.filter_by(reservation_id=res.id).first()
+        assert review is not None
+        assert review.rating == 5
+        assert review.status == "active"
 
-    def test_submit_invalid_rating(self, client, db, completed_reservation, sample_users):
+    def test_submit_invalid_rating_too_low(self, client, db, completed_reservation, sample_users):
         _login(client, "testcustomer")
         res = completed_reservation["reservation"]
         resp = client.post(
             "/reviews",
-            data={
-                "reservation_id": res.id,
-                "rating": "0",
-                "text": "Bad rating value.",
-            },
+            data={"reservation_id": res.id, "rating": "0", "text": "Too low."},
+        )
+        assert resp.status_code == 400
+        assert b"1" in resp.data and b"5" in resp.data or b"rating" in resp.data.lower()
+
+    def test_submit_invalid_rating_too_high(self, client, db, completed_reservation, sample_users):
+        _login(client, "testcustomer")
+        res = completed_reservation["reservation"]
+        resp = client.post(
+            "/reviews",
+            data={"reservation_id": res.id, "rating": "6", "text": "Too high."},
         )
         assert resp.status_code == 400
 
@@ -105,23 +116,18 @@ class TestSubmitReview:
             "/reviews",
             data={"reservation_id": res.id, "rating": "4"},
         )
-        # login_required should redirect or return 401
         assert resp.status_code in (302, 401)
 
-    def test_duplicate_review_blocked(self, client, db, completed_reservation, sample_users):
+    def test_duplicate_review_blocked_with_message(self, client, db, completed_reservation, sample_users):
         _login(client, "testcustomer")
         res = completed_reservation["reservation"]
-        # First submission
-        client.post(
-            "/reviews",
-            data={"reservation_id": res.id, "rating": "5", "text": "Great!"},
-        )
-        # Second submission same reservation
+        client.post("/reviews", data={"reservation_id": res.id, "rating": "5", "text": "Great!"})
         resp = client.post(
             "/reviews",
             data={"reservation_id": res.id, "rating": "4", "text": "Another attempt"},
         )
         assert resp.status_code == 400
+        assert b"already" in resp.data.lower() or b"reviewed" in resp.data.lower()
 
     def test_submit_with_content_filter(self, client, db, completed_reservation, sample_users, sample_filter):
         _login(client, "testcustomer")
@@ -135,6 +141,7 @@ class TestSubmitReview:
             },
         )
         assert resp.status_code == 400
+        assert b"prohibited" in resp.data.lower() or b"filter" in resp.data.lower() or b"badword" in resp.data.lower()
 
 
 # ── TestDeleteReview ──────────────────────────────────────────────────────────

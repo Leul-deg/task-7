@@ -110,9 +110,29 @@ class TestResolveAppeal:
             },
         )
         assert resp.status_code == 200
+        assert b"upheld" in resp.data.lower() or b"resolved" in resp.data.lower()
+
+    def test_uphold_appeal_deducts_dispute_credit(self, client, db, sample_users, sample_room):
+        """Upholding an appeal records a -5 dispute_upheld credit event for the reviewer."""
+        from app.models.analytics import CreditHistory
+        data = _make_review_with_appeal(db, sample_users, sample_room)
+        _login(client, "testadmin")
+        client.post(
+            f"/admin/appeals/{data['appeal'].id}/resolve",
+            data={
+                "decision": "upheld",
+                "resolution_text": "Review removed after investigation.",
+            },
+        )
+        credit = CreditHistory.query.filter_by(
+            user_id=sample_users["customer"].id,
+            event_type="dispute_upheld",
+        ).first()
+        assert credit is not None
+        assert credit.points == -5
 
     def test_reject_appeal_returns_200(self, client, db, sample_users, sample_room):
-        """Admin rejecting an appeal gets a 200."""
+        """Admin rejecting an appeal gets a 200 and review stays active."""
         data = _make_review_with_appeal(db, sample_users, sample_room)
         _login(client, "testadmin")
         resp = client.post(
@@ -123,6 +143,8 @@ class TestResolveAppeal:
             },
         )
         assert resp.status_code == 200
+        db.session.refresh(data["review"])
+        assert data["review"].status == "active"
 
     def test_upheld_appeal_changes_review_status(self, client, db, sample_users, sample_room):
         """When an appeal is upheld, the underlying review is hidden/removed."""

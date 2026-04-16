@@ -585,6 +585,28 @@ def get_editor_dashboard(user_id: int, role: str) -> list[dict]:
 # FUNCTION 10
 # ---------------------------------------------------------------------------
 
+def delete_content(content_id: int, user_id: int) -> dict:
+    """Delete content and all its versions. Owner or admin only."""
+    content = Content.query.get(content_id)
+    if not content:
+        return {"success": False, "reason": "Content not found."}
+
+    actor = User.query.get(user_id)
+    if not actor:
+        return {"success": False, "reason": "User not found."}
+    if content.author_id != user_id and actor.role != "admin":
+        return {"success": False, "reason": "You can only delete your own content."}
+
+    title = content.title
+    # Delete versions explicitly (no cascade configured on the relationship)
+    ContentVersion.query.filter_by(content_id=content_id).delete()
+    db.session.delete(content)
+    db.session.commit()
+
+    logger.info("Content id=%d ('%s') deleted by user_id=%d", content_id, title, user_id)
+    return {"success": True, "message": f"'{title}' has been deleted."}
+
+
 def preview_markdown(text: str) -> str:
     """Convert markdown text to sanitized HTML for live preview."""
     if not text:

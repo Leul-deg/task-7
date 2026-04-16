@@ -480,6 +480,73 @@ class TestMarkdownPreview:
         assert b"<strong>" in resp.data
 
 
+# ── XSS / HTML sanitization ──────────────────────────────────────────────────
+
+class TestXSSSanitization:
+    """Verify that bleach strips dangerous HTML before it reaches any response."""
+
+    def test_preview_strips_script_tag(self, client, login_as, editor_user):
+        """POST /content/preview with a <script> payload must strip the tag itself."""
+        login_as("editor1", "TestPass123!")
+        resp = client.post(
+            "/content/preview",
+            data={"body": "<script>alert('xss')</script>Legit content."},
+        )
+        assert resp.status_code == 200
+        # bleach strips the tag; inner text may remain as inert plain text — that is safe
+        assert b"<script>" not in resp.data
+        assert b"</script>" not in resp.data
+
+    def test_preview_strips_onerror_attribute(self, client, login_as, editor_user):
+        """onerror event handler injected via an img tag must be removed."""
+        login_as("editor1", "TestPass123!")
+        resp = client.post(
+            "/content/preview",
+            data={"body": '<img src="x" onerror="alert(1)">'},
+        )
+        assert resp.status_code == 200
+        assert b"onerror" not in resp.data
+
+    def test_preview_strips_style_tag(self, client, login_as, editor_user):
+        """<style> blocks are stripped from preview output."""
+        login_as("editor1", "TestPass123!")
+        resp = client.post(
+            "/content/preview",
+            data={"body": "<style>body{display:none}</style>Normal text."},
+        )
+        assert resp.status_code == 200
+        assert b"<style>" not in resp.data
+
+    def test_save_script_tag_stripped_from_rendered_preview(
+        self, client, login_as, editor_user, db
+    ):
+        """When a body containing <script> is run through the preview endpoint, the
+        tag is absent from the sanitized HTML fragment returned."""
+        login_as("editor1", "TestPass123!")
+        # Use the preview endpoint to render the dangerous body — this exercises
+        # the same sanitization path as the content renderer.
+        resp = client.post(
+            "/content/preview",
+            data={"body": "<script>alert('stored-xss')</script>Safe paragraph."},
+        )
+        assert resp.status_code == 200
+        assert b"<script>" not in resp.data
+        assert b"</script>" not in resp.data
+        # The safe surrounding text must still be present.
+        assert b"Safe paragraph" in resp.data
+
+    def test_preview_safe_markdown_preserved(self, client, login_as, editor_user):
+        """Legitimate markdown (headers, bold) survives sanitization intact."""
+        login_as("editor1", "TestPass123!")
+        resp = client.post(
+            "/content/preview",
+            data={"body": "## Safe Heading\n\n**bold text** and _italic_."},
+        )
+        assert resp.status_code == 200
+        assert b"Safe Heading" in resp.data
+        assert b"<strong>" in resp.data or b"bold" in resp.data
+
+
 # ── Analytics heartbeat ───────────────────────────────────────────────────────
 
 class TestHeartbeat:
@@ -599,3 +666,74 @@ class TestCategories:
         """GET /content/categories returns 200 (options populated from published content)."""
         resp = client.get("/content/categories?q=")
         assert resp.status_code == 200
+
+
+# ── Content deletion ──────────────────────────────────────────────────────────
+
+class TestContentDeletion:
+    def test_owner_can_delete_own_content(self, client, login_as, editor_user, sample_content, db):
+        """DELETE /content/editor/<id> succeeds for the content owner."""
+        content_id = sample_content.id
+        login_as("editor1", "TestPass123!")
+        resp = client.delete(f"/content/editor/{content_id}", follow_redirects=False)
+        assert resp.status_code in (200, 302)
+        with client.application.app_context():
+            assert Content.query.get(content_id) is None
+
+    def test_other_editor_cannot_delete(self, client, login_as, sample_content, db):
+        """A different editor cannot delete content they don't own."""
+        from app.models.user import User
+        from app.services.auth_service import hash_password
+        with client.application.app_context():
+            other = User(
+                username="delete_other_editor",
+                email="delete_other@test.com",
+                role="editor",
+                credit_score=100,
+                password_hash=hash_password("TestPass123!"),
+            )
+            _db.session.add(other)
+            _db.session.commit()
+
+        login_as("delete_other_editor", "TestPass123!")
+        resp = client.delete(f"/content/editor/{sample_content.id}")
+        assert resp.status_code == 403
+        with client.application.app_context():
+            assert Content.query.get(sample_content.id) is not None
+
+    def test_admin_can_delete_any_content(self, client, login_as, sample_users, editor_user,
+                                           sample_content, db):
+        """Admin can delete any editor's content."""
+        content_id = sample_content.id
+        login_as("testadmin", "TestPass123!")
+        resp = client.delete(f"/content/editor/{content_id}", follow_redirects=False)
+        assert resp.status_code in (200, 302)
+        with client.application.app_context():
+            assert Content.query.get(content_id) is None
+
+    def test_delete_nonexistent_content_returns_error(self, client, login_as, editor_user):
+        """DELETE /content/editor/99999 returns 400 or 404 — not 500."""
+        login_as("editor1", "TestPass123!")
+        resp = client.delete("/content/editor/99999")
+        assert resp.status_code in (400, 404)
+
+    def test_delete_requires_login(self, client, sample_content):
+        """Unauthenticated DELETE is rejected."""
+        resp = client.delete(f"/content/editor/{sample_content.id}")
+        assert resp.status_code in (302, 401)
+
+    def test_customer_cannot_delete_content(self, client, login_as, sample_users, sample_content):
+        """Customer role cannot access the delete endpoint."""
+        login_as("testcustomer", "TestPass123!")
+        resp = client.delete(f"/content/editor/{sample_content.id}")
+        assert resp.status_code == 403
+
+    def test_delete_htmx_returns_hx_redirect(self, client, login_as, editor_user, sample_content):
+        """HTMX DELETE returns HX-Redirect to the editor dashboard."""
+        login_as("editor1", "TestPass123!")
+        resp = client.delete(
+            f"/content/editor/{sample_content.id}",
+            headers={"HX-Request": "true"},
+        )
+        assert resp.status_code == 200
+        assert "HX-Redirect" in resp.headers

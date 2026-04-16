@@ -280,3 +280,120 @@ class TestProtectedRouteWithoutLogin:
     def test_htmx_protected_route_returns_401(self, client):
         resp = client.get("/booking/", headers={"HX-Request": "true"})
         assert resp.status_code == 401
+
+
+# ── test_change_password ──────────────────────────────────────────────────────
+
+class TestChangePassword:
+    def _login(self, client, username="testuser", password="Password123!"):
+        client.post("/auth/login", data={"identifier": username, "password": password})
+
+    def test_change_password_page_requires_login(self, client):
+        """GET /auth/change-password redirects unauthenticated users."""
+        resp = client.get("/auth/change-password", follow_redirects=False)
+        assert resp.status_code in (302, 401)
+
+    def test_change_password_page_loads_for_authenticated(self, client, app):
+        _make_user(app)
+        self._login(client)
+        resp = client.get("/auth/change-password")
+        assert resp.status_code == 200
+        assert b"Change Password" in resp.data
+
+    def test_change_password_success(self, client, app):
+        """Valid current + new password updates the hash."""
+        _make_user(app)
+        self._login(client)
+        resp = client.post("/auth/change-password", data={
+            "current_password": "Password123!",
+            "new_password": "NewPassword456!",
+            "confirm_password": "NewPassword456!",
+        }, follow_redirects=False)
+        # Successful change redirects to schedule
+        assert resp.status_code == 302
+        # Old password no longer works
+        client.post("/auth/logout")
+        resp2 = client.post("/auth/login",
+            data={"identifier": "testuser", "password": "Password123!"},
+            follow_redirects=False)
+        assert resp2.status_code != 302
+
+    def test_change_password_new_password_works_after_change(self, client, app):
+        """After changing, the new password authenticates correctly."""
+        _make_user(app)
+        self._login(client)
+        client.post("/auth/change-password", data={
+            "current_password": "Password123!",
+            "new_password": "BrandNew9999!",
+            "confirm_password": "BrandNew9999!",
+        })
+        client.post("/auth/logout")
+        resp = client.post("/auth/login",
+            data={"identifier": "testuser", "password": "BrandNew9999!"},
+            follow_redirects=False)
+        assert resp.status_code == 302
+
+    def test_change_password_wrong_current_fails(self, client, app):
+        """Wrong current password returns an error."""
+        _make_user(app)
+        self._login(client)
+        resp = client.post("/auth/change-password", data={
+            "current_password": "WrongCurrent!",
+            "new_password": "NewPassword456!",
+            "confirm_password": "NewPassword456!",
+        })
+        assert resp.status_code == 200
+        assert b"incorrect" in resp.data.lower() or b"current" in resp.data.lower()
+
+    def test_change_password_mismatch_confirm(self, client, app):
+        """Mismatched new/confirm passwords returns an error."""
+        _make_user(app)
+        self._login(client)
+        resp = client.post("/auth/change-password", data={
+            "current_password": "Password123!",
+            "new_password": "NewPassword456!",
+            "confirm_password": "DifferentPass789!",
+        })
+        assert resp.status_code == 200
+        assert b"match" in resp.data.lower()
+
+    def test_change_password_too_short(self, client, app):
+        """New password under 10 characters is rejected."""
+        _make_user(app)
+        self._login(client)
+        resp = client.post("/auth/change-password", data={
+            "current_password": "Password123!",
+            "new_password": "Short1!",
+            "confirm_password": "Short1!",
+        })
+        assert resp.status_code == 200
+        assert b"10" in resp.data or b"character" in resp.data.lower()
+
+    def test_change_password_htmx_success_returns_hx_redirect(self, client, app):
+        """HTMX success returns HX-Redirect header."""
+        _make_user(app)
+        self._login(client)
+        resp = client.post("/auth/change-password",
+            data={
+                "current_password": "Password123!",
+                "new_password": "HtmxChanged99!",
+                "confirm_password": "HtmxChanged99!",
+            },
+            headers={"HX-Request": "true"},
+        )
+        assert resp.status_code == 200
+        assert "HX-Redirect" in resp.headers
+
+    def test_change_password_htmx_error_returns_422(self, client, app):
+        """HTMX wrong current password returns 422."""
+        _make_user(app)
+        self._login(client)
+        resp = client.post("/auth/change-password",
+            data={
+                "current_password": "NotTheRealOne!",
+                "new_password": "NewPassword456!",
+                "confirm_password": "NewPassword456!",
+            },
+            headers={"HX-Request": "true"},
+        )
+        assert resp.status_code == 422

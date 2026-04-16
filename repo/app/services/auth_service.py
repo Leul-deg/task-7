@@ -100,6 +100,26 @@ def register_user(username: str, email: str, password: str, role: str = "custome
     return user, ""
 
 
+def change_password(user_id: int, current_password: str, new_password: str) -> dict:
+    """
+    Change a user's password after verifying the current password.
+
+    Returns
+    -------
+    dict
+        ``{"success": True, "message": str}``
+        ``{"success": False, "reason": str}``
+    """
+    user = User.query.get(user_id)
+    if user is None:
+        return {"success": False, "reason": "User not found."}
+    if not verify_password(current_password, user.password_hash):
+        return {"success": False, "reason": "Current password is incorrect."}
+    user.password_hash = hash_password(new_password)
+    db.session.commit()
+    return {"success": True, "message": "Password updated successfully."}
+
+
 def _get_client_ip() -> str:
     try:
         return request.remote_addr or "unknown"
